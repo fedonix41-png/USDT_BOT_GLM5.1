@@ -229,6 +229,37 @@
 
 ---
 
+### api_tokens — Токены REST API
+
+Хранит refresh токены для авторизации в REST API.
+
+| Столбец | Тип | Ограничения | Описание |
+|---------|-----|-------------|----------|
+| `id` | `SERIAL` | `PRIMARY KEY` | ID записи |
+| `user_id` | `INTEGER` | `FOREIGN KEY → users.id ON DELETE CASCADE` | Пользователь |
+| `token_hash` | `VARCHAR(64)` | `NOT NULL` | SHA-256 хеш refresh токена |
+| `jti` | `VARCHAR(36)` | `UNIQUE NOT NULL` | JWT ID (уникальный идентификатор токена) |
+| `expires_at` | `TIMESTAMP` | `NOT NULL` | Дата истечения |
+| `revoked` | `BOOLEAN` | `DEFAULT FALSE` | Флаг отзыва токена |
+| `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Дата создания |
+
+**Индексы:**
+
+| Имя | Столбцы | Назначение |
+|-----|---------|------------|
+| `ix_api_tokens_user_id` | `(user_id)` | Поиск токенов пользователя |
+| `ix_api_tokens_jti` | `(jti)` | Поиск по JWT ID |
+
+**Связи:**
+- `user_id` → `users.id` (многие-к-одному)
+
+**Особенности:**
+- `token_hash` — SHA-256 хранится вместо самого токена для безопасности
+- При использовании refresh токена старый отзывается и создаётся новый (ротация)
+- `ON DELETE CASCADE` — при удалении пользователя удаляются все его токены
+
+---
+
 ## Диаграмма связей
 
 ```
@@ -301,6 +332,10 @@
   - Создаёт все 6 таблиц
   - Создаёт 4 enum-типа (`RoleEnum`, `OrderTypeEnum`, `OrderStatusEnum`, `RateTypeEnum`)
   - Создаёт индексы на таблице `orders`
+- Вторая миграция: `migrations/versions/002_add_is_active_notification.py`
+  - Добавляет колонку `is_active` в `notification_chats`
+- Третья миграция: `migrations/versions/003_add_api_tokens.py`
+  - Создаёт таблицу `api_tokens` для refresh токенов REST API
 - Команда применения: `uv run alembic upgrade head`
 - Новая миграция: `uv run alembic revision --autogenerate -m "описание"`
 - Для тестов: in-memory SQLite с `create_all()` (без миграций)

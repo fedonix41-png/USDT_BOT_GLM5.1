@@ -5,7 +5,29 @@ app/
 ├── config.py           # Pydantic Settings — все переменные окружения
 ├── bot.py              # Dispatcher, роутеры, middleware registration
 ├── main.py             # Entry point — запуск Long Polling + health server
-├── health.py           # HTTP healthcheck endpoints (/health, /ready, /live)
+├── health.py           # HTTP healthcheck endpoints (/, /health, /ready, /live)
+│
+├── api/                # REST API модуль
+│   ├── __init__.py
+│   ├── app.py          # aiohttp Application, middleware, routes
+│   ├── deps.py         # Dependencies: get_session, get_current_user
+│   ├── auth.py         # JWT generation, verification, refresh
+│   ├── middleware.py   # AuthMiddleware, RateLimitMiddleware, IPWhitelistMiddleware, CORS
+│   ├── exceptions.py   # APIException, error handlers
+│   ├── routers/
+│   │   ├── auth.py     # POST /api/v1/auth/login, /refresh, /logout
+│   │   ├── users.py    # GET/POST/PATCH /api/v1/users
+│   │   ├── orders.py   # GET/PATCH /api/v1/orders
+│   │   ├── rates.py    # GET/POST /api/v1/rates
+│   │   ├── settings.py # GET/PATCH /api/v1/settings
+│   │   └── statistics.py # GET /api/v1/statistics
+│   └── schemas/
+│       ├── auth.py     # LoginRequest, TokenResponse, RefreshRequest
+│       ├── user.py     # UserResponse, UserListResponse, RoleUpdateRequest
+│       ├── order.py    # OrderResponse, OrderListResponse, OrderStatusUpdate
+│       ├── rate.py     # RateResponse, RateCreateRequest
+│       ├── settings.py # SettingsResponse, SettingsUpdateRequest
+│       └── statistics.py # StatisticsResponse
 │
 ├── database/
 │   ├── engine.py       # AsyncEngine, AsyncSessionMaker
@@ -15,6 +37,7 @@ app/
 │       ├── user.py, order.py, rate.py
 │       ├── global_settings.py
 │       ├── notification_chat.py, audit_log.py
+│       └── api_token.py # APIToken для refresh токенов
 │
 ├── repositories/       # Слой доступа к данным
 │   ├── base.py         # Generic CRUD (get_by_id, get_all, create, update, delete)
@@ -23,7 +46,8 @@ app/
 │   ├── rate_repo.py    # get_current_rate, get_rate_history
 │   ├── settings_repo.py # get/set по ключу
 │   ├── notification_repo.py # get_all_chat_ids
-│   └── audit_repo.py   # log
+│   ├── audit_repo.py   # log
+│   └── api_token_repo.py # manage refresh tokens
 │
 ├── services/           # Бизнес-логика
 │   ├── encryption.py   # AES-256-CBC шифрование (encrypt/decrypt)
@@ -169,6 +193,15 @@ ARQ_REDIS_URL: str = "redis://localhost:6379/1"
 LOG_LEVEL: str = "INFO"
 JSON_LOGS: bool = False
 HEALTH_PORT: int = 8080
+# API
+API_SECRET_KEY: str
+API_ACCESS_TOKEN_EXPIRE: int = 1800  # 30 мин
+API_REFRESH_TOKEN_EXPIRE: int = 604800  # 7 дней
+API_PORT: int = 8081
+API_RATE_LIMIT: int = 100  # req/min per IP
+API_CORS_ORIGINS: list[str] = []
+API_ADMIN_IP_WHITELIST: list[str] = []
+API_LOGIN_BLOCK_DURATION: int = 300  # 5 мин
 ```
 
 ### global_settings (ключи)

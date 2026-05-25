@@ -4,6 +4,7 @@ import json
 import logging
 
 from aiohttp import web
+from sqlalchemy import text
 
 from app.config import settings
 from app.database.engine import engine
@@ -18,7 +19,7 @@ async def health_check(request: web.Request) -> web.Response:
 
     try:
         async with engine.connect() as conn:
-            await conn.execute("SELECT 1")
+            await conn.execute(text("SELECT 1"))
         checks["database"] = True
     except Exception as e:
         logger.error(f"Health check DB failed: {e}")
@@ -54,9 +55,15 @@ async def liveness_check(request: web.Request) -> web.Response:
     )
 
 
+async def root_redirect(request: web.Request) -> web.Response:
+    """Redirect root path to health check."""
+    raise web.HTTPFound("/health")
+
+
 def create_health_app() -> web.Application:
     """Create aiohttp application for health checks."""
     app = web.Application()
+    app.router.add_get("/", root_redirect)
     app.router.add_get("/health", health_check)
     app.router.add_get("/ready", readiness_check)
     app.router.add_get("/live", liveness_check)

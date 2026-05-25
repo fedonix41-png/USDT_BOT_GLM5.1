@@ -12,6 +12,7 @@ dependencies = [
     "arq==0.26.*",
     "pydantic-settings==2.7.*",
     "cryptography==44.0.*",
+    "pyjwt==2.10.*",
 ]
 
 [project.optional-dependencies]
