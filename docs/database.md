@@ -202,7 +202,7 @@
 | `id` | `SERIAL` | `PRIMARY KEY` | ID записи |
 | `user_id` | `INTEGER` | `FOREIGN KEY → users.id NOT NULL` | Кто совершил действие |
 | `action` | `VARCHAR(255)` | `NOT NULL` | Тип действия |
-| `details` | `JSONB` | `NULL` | Детали изменения (параметры) |
+| `details` | `JSONB` | `NULL` | Детали изменения (параметры). В ORM — `JSONBCompat` (JSONB на PostgreSQL, JSON на SQLite) |
 | `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Дата действия |
 
 **Связи:**
@@ -224,7 +224,7 @@
 | `remove_notification_chat` | Удаление чата уведомлений | `{"chat_id": -1001234567890}` |
 
 **Особенности:**
-- `details` в формате JSONB — позволяет хранить структурированные данные и выполнять запросы по полям
+- `details` в формате JSONB — позволяет хранить структурированные данные и выполнять запросы по полям. В ORM-модели используется `JSONBCompat` — кросс-диалектный тип (JSONB на PostgreSQL, JSON на SQLite для тестов)
 - Записи только добавляются (append-only), никогда не удаляются и не изменяются
 
 ---

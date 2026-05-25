@@ -77,6 +77,12 @@ class Base(DeclarativeBase):
     pass
 ```
 
+### types.py — Кросс-диалектные типы
+
+Пользовательские типы SQLAlchemy для совместимости между PostgreSQL (продакшен) и SQLite (тесты):
+
+- **`JSONBCompat`** — `TypeDecorator`, который рендерится как `JSONB` на PostgreSQL и `JSON` на остальных диалектах. Используется в `AuditLog.details`. На PostgreSQL сохраняет все преимущества `jsonb` (индексация, бинарный формат), а на SQLite позволяет запускать тесты без ошибок компиляции.
+
 ### models/ — ORM модели
 
 #### user.py — User
@@ -160,7 +166,7 @@ class Base(DeclarativeBase):
 | `id` | `SERIAL PK` | ID записи |
 | `user_id` | `INT FK → users.id` | Кто совершил действие |
 | `action` | `String(255)` | Тип действия (например, `change_rate_buy`) |
-| `details` | `JSONB` | Детали изменения |
+| `details` | `JSONBCompat` | Детали изменения (JSONB на PostgreSQL, JSON на SQLite) |
 | `created_at` | `TIMESTAMP` | Дата действия |
 
 ---
@@ -197,8 +203,8 @@ class Base(DeclarativeBase):
 
 Специфичные методы:
 
-- `get_current_rate(session, rate_type)` — последняя запись с данным `rate_type`, `ORDER BY created_at DESC`
-- `get_rate_history(session, rate_type, limit)` — история изменений курса
+- `get_current_rate(session, rate_type)` — последняя запись с данным `rate_type`, `ORDER BY created_at DESC, id DESC`
+- `get_rate_history(session, rate_type, limit)` — история изменений курса, `ORDER BY created_at DESC, id DESC`
 
 ### settings_repo.py — SettingsRepository
 

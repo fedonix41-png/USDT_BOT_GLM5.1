@@ -15,7 +15,7 @@ class RateRepository(BaseRepository[Rate]):
         stmt = (
             select(Rate)
             .where(Rate.rate_type == rate_type)
-            .order_by(Rate.created_at.desc())
+            .order_by(Rate.created_at.desc(), Rate.id.desc())
             .limit(1)
         )
         result = await self.session.execute(stmt)
@@ -25,7 +25,7 @@ class RateRepository(BaseRepository[Rate]):
         stmt = (
             select(Rate)
             .where(Rate.rate_type == rate_type)
-            .order_by(Rate.created_at.desc())
+            .order_by(Rate.created_at.desc(), Rate.id.desc())
             .limit(limit)
         )
         result = await self.session.execute(stmt)
