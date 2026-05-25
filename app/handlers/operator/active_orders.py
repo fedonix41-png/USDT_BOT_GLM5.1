@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-@router.message(F.text == "📋 Активные заявки")
+@router.message(F.text == "📋 Заявки")
 async def show_active_orders(message: Message, session: AsyncSession) -> None:
     """Show first page of active orders."""
     order_service = OrderService(session, None)

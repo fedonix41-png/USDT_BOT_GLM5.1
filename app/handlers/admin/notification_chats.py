@@ -1,9 +1,11 @@
-"""Handler for managing notification chats — add, list, delete."""
+"""Handler for managing notification chats — add, list, delete.
+
+FSM is now started from the management panel (mgmt:chats callback).
+"""
 
 import logging
 
 from aiogram import Router, F
-from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
@@ -23,13 +25,6 @@ router = Router()
 
 class NotificationChatStates(StatesGroup):
     waiting_chat_id = State()
-
-
-@router.message(F.text == "➕ Чаты уведомлений", StateFilter(None))
-async def notification_chats_menu(message: Message) -> None:
-    """Show notification chats management menu."""
-    kb = notification_chats_menu_kb()
-    await message.answer("Управление чатами уведомлений:", reply_markup=kb)
 
 
 @router.callback_query(F.data == "notif_list")
@@ -100,7 +95,6 @@ async def process_add_chat(
         await notif_service.add_chat(chat_id=chat_id, added_by=user.id)
         await message.answer(f"✅ Чат {chat_id} добавлен для уведомлений.")
 
-    # Restore admin main menu
     flags = await get_settings_flags(session)
     kb = get_main_keyboard(
         role=user.role,

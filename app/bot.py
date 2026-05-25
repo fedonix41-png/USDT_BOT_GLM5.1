@@ -5,7 +5,7 @@ import logging
 from aiogram import Bot, Dispatcher
 
 from app.config import settings
-from app.handlers.admin import change_links, change_rate, assign_roles, notification_chats, toggle_flags
+from app.handlers.admin import change_links, change_rate, assign_roles, management, notification_chats, toggle_flags
 from app.handlers.client import buy, cancel_order, rates, sell, support
 from app.handlers.common import broken_link, cancel, calendar
 from app.handlers.operator import active_orders, complete_order, statistics
@@ -72,6 +72,7 @@ def setup_dispatcher() -> Dispatcher:
     dp.include_router(toggle_flags.router)
     dp.include_router(notification_chats.router)
     dp.include_router(assign_roles.router)
+    dp.include_router(management.router)
 
     logger.info("Dispatcher configured with all routers and middlewares")
     return dp

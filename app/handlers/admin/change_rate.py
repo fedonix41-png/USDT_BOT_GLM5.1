@@ -1,38 +1,25 @@
-"""Handlers for changing buy/sell exchange rates — FSM ChangeBuyRateStates / ChangeSellRateStates."""
+"""Handlers for changing buy/sell exchange rates — FSM ChangeBuyRateStates / ChangeSellRateStates.
+
+FSM is now started from the management panel (mgmt:rate_buy / mgmt:rate_sell callbacks).
+"""
 
 import logging
 from decimal import Decimal, InvalidOperation
 
 from aiogram import Router, F
-from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.rate import RateTypeEnum
 from app.database.models.user import RoleEnum, User
 from app.fsm.rate_states import ChangeBuyRateStates, ChangeSellRateStates
-from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
+from app.keyboards.cancel_kb import get_main_keyboard
 from app.services.rate_service import RateService
 from app.utils.helpers import get_settings_flags
 
 logger = logging.getLogger(__name__)
 
 router = Router()
-
-
-@router.message(F.text == "🔄 Сменить курс (покупка)", StateFilter(None))
-async def start_change_buy_rate(message: Message, state: FSMContext, session: AsyncSession) -> None:
-    """Initiate change buy rate FSM."""
-    rate_service = RateService(session)
-    current_rate = await rate_service.get_current_rate(RateTypeEnum.buy)
-
-    current_str = str(current_rate) if current_rate else "Не установлен"
-    await state.set_state(ChangeBuyRateStates.waiting_new_rate)
-    await message.answer(
-        f"Текущий курс покупки: {current_str} RUB/USDT\nВведите новый курс:",
-        reply_markup=cancel_keyboard(),
-    )
 
 
 @router.message(ChangeBuyRateStates.waiting_new_rate)
@@ -59,7 +46,7 @@ async def process_new_buy_rate(
         return
 
     rate_service = RateService(session)
-    await rate_service.set_rate(RateTypeEnum.buy, new_rate, user.id)
+    await rate_service.set_rate("buy", new_rate, user.id)
 
     flags = await get_settings_flags(session)
     kb = get_main_keyboard(
@@ -72,20 +59,6 @@ async def process_new_buy_rate(
     await message.answer(f"Курс покупки изменён на {new_rate} RUB/USDT", reply_markup=kb)
     await state.clear()
     logger.info(f"Buy rate changed to {new_rate} by user {user.telegram_id}")
-
-
-@router.message(F.text == "🔄 Сменить курс (продажа)", StateFilter(None))
-async def start_change_sell_rate(message: Message, state: FSMContext, session: AsyncSession) -> None:
-    """Initiate change sell rate FSM."""
-    rate_service = RateService(session)
-    current_rate = await rate_service.get_current_rate(RateTypeEnum.sell)
-
-    current_str = str(current_rate) if current_rate else "Не установлен"
-    await state.set_state(ChangeSellRateStates.waiting_new_rate)
-    await message.answer(
-        f"Текущий курс продажи: {current_str} RUB/USDT\nВведите новый курс:",
-        reply_markup=cancel_keyboard(),
-    )
 
 
 @router.message(ChangeSellRateStates.waiting_new_rate)
@@ -112,7 +85,7 @@ async def process_new_sell_rate(
         return
 
     rate_service = RateService(session)
-    await rate_service.set_rate(RateTypeEnum.sell, new_rate, user.id)
+    await rate_service.set_rate("sell", new_rate, user.id)
 
     flags = await get_settings_flags(session)
     kb = get_main_keyboard(

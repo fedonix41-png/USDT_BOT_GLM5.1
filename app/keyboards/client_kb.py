@@ -5,8 +5,8 @@ from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
 def client_keyboard(buy_enabled: bool = True, sell_enabled: bool = True) -> ReplyKeyboardMarkup:
     """Main client menu keyboard."""
-    buy_text = "💰 Купить USDT" if buy_enabled else "🛑 Закуп остановлен"
-    sell_text = "💸 Продать USDT" if sell_enabled else "🛑 Продажа остановлена"
+    buy_text = "💰 Купить" if buy_enabled else "🛑 Закуп стоп"
+    sell_text = "💸 Продать" if sell_enabled else "🛑 Продажа стоп"
 
     kb = [
         [KeyboardButton(text=buy_text), KeyboardButton(text=sell_text)],

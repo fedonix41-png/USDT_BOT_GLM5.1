@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-@router.message(F.text == "💰 Купить USDT", StateFilter(None))
+@router.message(F.text == "💰 Купить", StateFilter(None))
 async def start_buy(message: Message, state: FSMContext, session: AsyncSession) -> None:
     """Initiate buy USDT FSM — check if buy is enabled."""
     encryption = EncryptionService(app_settings.ENCRYPTION_KEY)

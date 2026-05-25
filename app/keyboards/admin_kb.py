@@ -9,23 +9,14 @@ def admin_keyboard(
     bot_enabled: bool = True,
     is_super_admin: bool = False,
 ) -> ReplyKeyboardMarkup:
-    """Main admin menu keyboard."""
-    buy_btn_text = "✅ Закуп вкл" if buy_enabled else "⏸ Стоп закуп"
-    sell_btn_text = "✅ Продажа вкл" if sell_enabled else "⏸ Стоп продажа"
-    bot_btn_text = "🛑 Отключить бота" if bot_enabled else "✅ Включить бота"
+    """Main admin menu keyboard — compact 2-row layout.
 
+    Management functions (toggles, rate changes, etc.) are in the inline
+    panel triggered by ⚙️ Управление (see management_kb.py).
+    """
     kb = [
-        [KeyboardButton(text="📋 Активные заявки"), KeyboardButton(text="📈 Статистика")],
-        [KeyboardButton(text="📊 Курсы")],
-        [KeyboardButton(text="🔄 Сменить курс (покупка)"), KeyboardButton(text="🔄 Сменить курс (продажа)")],
-        [KeyboardButton(text="🔗 Сменить реквизиты")],
-        [KeyboardButton(text=buy_btn_text), KeyboardButton(text=sell_btn_text)],
-        [KeyboardButton(text=bot_btn_text)],
-        [KeyboardButton(text="➕ Чаты уведомлений")],
-        [KeyboardButton(text="👤 Сделать Оператором")],
+        [KeyboardButton(text="📋 Заявки"), KeyboardButton(text="📈 Статистика"), KeyboardButton(text="📊 Курсы")],
+        [KeyboardButton(text="⚙️ Управление")],
     ]
-
-    if is_super_admin:
-        kb.append([KeyboardButton(text="👑 Сделать Админом")])
 
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)

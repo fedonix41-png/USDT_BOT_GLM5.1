@@ -1,9 +1,11 @@
-"""Handler for changing payment links — FSM ChangeLinksStates."""
+"""Handler for changing payment links — FSM ChangeLinksStates.
+
+FSM is now started from the management panel (mgmt:links callback).
+"""
 
 import logging
 
 from aiogram import Router, F
-from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,18 +26,6 @@ from app.utils.helpers import get_settings_flags
 logger = logging.getLogger(__name__)
 
 router = Router()
-
-
-@router.message(F.text == "🔗 Сменить реквизиты", StateFilter(None))
-async def start_change_links(message: Message, state: FSMContext) -> None:
-    """Initiate change links FSM — choose type."""
-    await state.set_state(ChangeLinksStates.choosing_type)
-    await message.answer(
-        "Выберите тип реквизитов:",
-        reply_markup=cancel_keyboard(),
-    )
-    # Inline keyboard sent separately (Telegram allows only one reply_markup type per message)
-    await message.answer("👇 Покупка / Продажа:", reply_markup=link_type_kb())
 
 
 @router.callback_query(ChangeLinksStates.choosing_type, F.data.startswith("link_type:"))

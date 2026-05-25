@@ -1,9 +1,11 @@
-"""Handlers for assigning operator/admin roles — FSM AssignOperatorStates / AssignAdminStates."""
+"""Handlers for assigning operator/admin roles — FSM AssignOperatorStates / AssignAdminStates.
+
+FSM is now started from the management panel (mgmt:assign_operator / mgmt:assign_admin callbacks).
+"""
 
 import logging
 
 from aiogram import Router, F
-from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,16 +20,6 @@ from app.utils.helpers import get_settings_flags
 logger = logging.getLogger(__name__)
 
 router = Router()
-
-
-@router.message(F.text == "👤 Сделать Оператором", StateFilter(None))
-async def start_assign_operator(message: Message, state: FSMContext) -> None:
-    """Initiate assign operator FSM."""
-    await state.set_state(AssignOperatorStates.waiting_target_user)
-    await message.answer(
-        "Введите Telegram ID пользователя или перешлите его контакт:",
-        reply_markup=cancel_keyboard(),
-    )
 
 
 @router.message(AssignOperatorStates.waiting_target_user)
@@ -85,16 +77,6 @@ async def process_assign_operator(
     await message.answer(f"✅ Пользователь {username_str} теперь Оператор.", reply_markup=kb)
     await state.clear()
     logger.info(f"User {target_telegram_id} assigned as Operator by {message.from_user.id}")
-
-
-@router.message(F.text == "👑 Сделать Админом", StateFilter(None))
-async def start_assign_admin(message: Message, state: FSMContext) -> None:
-    """Initiate assign admin FSM (only for SuperAdmin)."""
-    await state.set_state(AssignAdminStates.waiting_target_user)
-    await message.answer(
-        "Введите Telegram ID пользователя или перешлите его контакт:",
-        reply_markup=cancel_keyboard(),
-    )
 
 
 @router.message(AssignAdminStates.waiting_target_user)
