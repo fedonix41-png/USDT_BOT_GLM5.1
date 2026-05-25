@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     BOT_TOKEN: str                          # Токен Telegram-бота
     DATABASE_URL: str                       # URL подключения к PostgreSQL
     REDIS_URL: str = "redis://localhost:6379/0"  # Redis для кеша
-    ENCRYPTION_KEY: str                     # 64-char hex = 32 байта AES-256
+    ENCRYPTION_KEY: str                     # 64-char hex или base64 = 32 байта AES-256
     SUPER_ADMIN_TELEGRAM_ID: int            # Telegram ID SuperAdmin
     ORDERS_PER_PAGE: int = 5               # Заявок на страницу (пагинация)
     ARQ_REDIS_URL: str = "redis://localhost:6379/1"  # Redis для ARQ (DB 1)
@@ -229,11 +229,12 @@ AES-256-CBC шифрование/дешифрование реквизитов.
 
 ```python
 class EncryptionService:
-    def __init__(self, key_hex: str): ...  # 64-char hex → 32 байта
+    def __init__(self, key_hex: str): ...  # 64-char hex или base64 → 32 байта
     def encrypt(self, plaintext: str) -> str: ...  # → hex (IV + ciphertext)
     def decrypt(self, cipher_hex: str) -> str: ...  # ← hex → plaintext
 ```
 
+- Ключ принимается в формате: 64 hex-символа, стандартный base64 или URL-safe base64 (с `-` и `_`). Декодированный ключ должен быть ровно 32 байта (AES-256).
 - IV — случайные 16 байт, записываются перед ciphertext
 - Результат — hex-строка для хранения в TEXT-поле БД
 - Используется библиотека `cryptography` (`Cipher`, `algorithms`, `modes`, `padding`)
@@ -435,6 +436,8 @@ FSM `AssignRoleStates` (`waiting_target_user`):
 - Ловит текст «❌ Отмена» во **всех** FSM-состояниях
 - Сбрасывает FSM-состояние (`state.clear()`)
 - Восстанавливает основное меню по роли пользователя (client/operator/admin)
+- Если пользователь не в FSM — отвечает «Нет активного действия для отмены.»
+- Если `user is None` — использует роль `client` по умолчанию для восстановления меню
 - Зарегистрирован **перед** остальными роутерами в `bot.py`, чтобы иметь приоритет
 
 #### calendar.py — Обработчик inline-календаря для выбора дат

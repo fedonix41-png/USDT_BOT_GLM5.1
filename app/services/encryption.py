@@ -5,6 +5,7 @@ IV: 16 random bytes generated per encryption, prepended to ciphertext.
 Output: hex-encoded string (IV + ciphertext) for storage in TEXT database fields.
 """
 
+import base64
 import os
 from binascii import hexlify, unhexlify
 
@@ -19,20 +20,45 @@ class EncryptionService:
     KEY_SIZE = 32  # AES-256 key size in bytes
 
     def __init__(self, key_hex: str) -> None:
-        """Initialize with a 64-character hex string (32 bytes for AES-256).
+        """Initialize with a 64-character hex string or base64 string (32 bytes for AES-256).
 
         Args:
-            key_hex: 64-character hex string representing the encryption key.
+            key_hex: 64-character hex string OR base64-encoded 32-byte key.
 
         Raises:
-            ValueError: If key_hex is not a valid 64-char hex string.
+            ValueError: If key cannot be decoded to 32 bytes.
         """
-        if len(key_hex) != 64:
-            raise ValueError(f"ENCRYPTION_KEY must be 64 hex chars (32 bytes), got {len(key_hex)}")
+        key_bytes = self._decode_key(key_hex)
+        if len(key_bytes) != self.KEY_SIZE:
+            raise ValueError(
+                f"ENCRYPTION_KEY must decode to {self.KEY_SIZE} bytes, got {len(key_bytes)}"
+            )
+        self._key = key_bytes
+
+    @staticmethod
+    def _decode_key(raw: str) -> bytes:
+        raw = raw.strip()
         try:
-            self._key = unhexlify(key_hex)
-        except (ValueError, TypeError) as e:
-            raise ValueError(f"Invalid hex string for ENCRYPTION_KEY: {e}")
+            key = unhexlify(raw)
+            if len(key) == 32:
+                return key
+        except (ValueError, TypeError):
+            pass
+        try:
+            key = base64.b64decode(raw)
+            if len(key) == 32:
+                return key
+        except (ValueError, TypeError):
+            pass
+        try:
+            key = base64.urlsafe_b64decode(raw)
+            if len(key) == 32:
+                return key
+        except (ValueError, TypeError):
+            pass
+        raise ValueError(
+            f"ENCRYPTION_KEY must be 64 hex chars or base64 of 32 bytes, got {len(raw)} chars"
+        )
 
     def encrypt(self, plaintext: str) -> str:
         """Encrypt plaintext using AES-256-CBC.

@@ -1,11 +1,13 @@
 """Tests for EncryptionService."""
 
+import base64
+
 import pytest
 
 from app.services.encryption import EncryptionService
 
-
 TEST_KEY = "a" * 64
+TEST_KEY_B64 = base64.urlsafe_b64encode(b"\x01" * 32).decode()
 
 
 class TestEncryptionService:
@@ -16,12 +18,16 @@ class TestEncryptionService:
         assert svc._key is not None
         assert len(svc._key) == 32
 
+    def test_init_valid_base64_key(self):
+        svc = EncryptionService(TEST_KEY_B64)
+        assert len(svc._key) == 32
+
     def test_init_invalid_key_length(self):
-        with pytest.raises(ValueError, match="64 hex chars"):
+        with pytest.raises(ValueError, match="32 bytes"):
             EncryptionService("short")
 
     def test_init_invalid_hex(self):
-        with pytest.raises(ValueError, match="Invalid hex"):
+        with pytest.raises(ValueError, match="ENCRYPTION_KEY must be"):
             EncryptionService("x" * 64)
 
     def test_encrypt_decrypt_roundtrip(self):

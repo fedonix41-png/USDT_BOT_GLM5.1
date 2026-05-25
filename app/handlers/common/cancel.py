@@ -30,22 +30,19 @@ async def cancel_any_fsm(
     """Cancel any active FSM flow and restore the main menu."""
     current_state = await state.get_state()
     if current_state is None:
-        # Not in FSM — just ignore (user typed cancel manually)
+        await message.answer("Нет активного действия для отмены.")
         return
 
     await state.clear()
     logger.info(f"FSM cancelled by user {message.from_user.id}, was in state {current_state}")
 
-    if user is None:
-        await message.answer("Действие отменено.")
-        return
-
+    role = user.role if user else RoleEnum.client
     flags = await get_settings_flags(session)
     kb = get_main_keyboard(
-        role=user.role,
+        role=role,
         buy_enabled=flags["buy_enabled"],
         sell_enabled=flags["sell_enabled"],
         bot_enabled=flags["bot_enabled"],
-        is_super_admin=user.role == RoleEnum.super_admin,
+        is_super_admin=role == RoleEnum.super_admin,
     )
     await message.answer("❌ Действие отменено.", reply_markup=kb)

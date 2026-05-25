@@ -29,19 +29,19 @@ def setup_dispatcher() -> Dispatcher:
     dp = Dispatcher()
 
     # Register middlewares — ORDER MATTERS!
-    # Last registered = outermost (wraps everything).
+    # First registered = outermost (wraps everything).
     # Execution order: DBSession → User → BotStatus → RoleGuard → handler
-    dp.message.middleware(RoleGuardMiddleware())
-    dp.callback_query.middleware(RoleGuardMiddleware())
-
-    dp.message.middleware(BotStatusMiddleware())
-    dp.callback_query.middleware(BotStatusMiddleware())
+    dp.message.middleware(DBSessionMiddleware())
+    dp.callback_query.middleware(DBSessionMiddleware())
 
     dp.message.middleware(UserMiddleware())
     dp.callback_query.middleware(UserMiddleware())
 
-    dp.message.middleware(DBSessionMiddleware())
-    dp.callback_query.middleware(DBSessionMiddleware())
+    dp.message.middleware(BotStatusMiddleware())
+    dp.callback_query.middleware(BotStatusMiddleware())
+
+    dp.message.middleware(RoleGuardMiddleware())
+    dp.callback_query.middleware(RoleGuardMiddleware())
 
     # Register routers — ORDER MATTERS for cancel handler!
     # Cancel handler must be registered BEFORE specific FSM handlers
