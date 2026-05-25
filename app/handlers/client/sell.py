@@ -3,7 +3,7 @@
 import logging
 from decimal import Decimal
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings as app_settings
 from app.database.models.order import OrderTypeEnum
-from app.database.models.user import RoleEnum, User
+from app.database.models.user import RoleEnum
 from app.fsm.order_states import OrderSellStates
 from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
 from app.keyboards.client_kb import client_keyboard
@@ -22,7 +22,7 @@ from app.services.rate_service import RateService
 from app.services.settings_service import SettingsService
 from app.services.user_service import UserService
 from app.utils.formatting import format_order_message
-from app.utils.helpers import check_fsm_attempts, get_settings_flags, reset_fsm_attempts
+from app.utils.helpers import check_fsm_attempts, get_settings_flags
 
 logger = logging.getLogger(__name__)
 

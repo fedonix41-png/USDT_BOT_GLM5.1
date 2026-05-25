@@ -14,8 +14,9 @@
 | 8. Навигация и UX | ✅ |
 | 9. Production readiness (P0) | ✅ |
 | 10. Stability (P1) | ✅ |
+| 11. Operational efficiency (P2) | ✅ |
 
-**MVP завершён на 100%. P0 и P1 выполнены.**
+**MVP завершён на 100%. P0, P1 и P2 выполнены.**
 
 ---
 
@@ -25,10 +26,10 @@
 `pyproject.toml`, `docker-compose.yml`, `Dockerfile`, `alembic.ini`, `.gitignore`, `.env.example`
 
 ### migrations/
-`env.py`, `script.py.mako`, `versions/001_initial.py`
+`env.py`, `script.py.mako`, `versions/001_initial.py`, `versions/002_add_is_active_notification.py`
 
 ### app/
-`config.py`, `bot.py`, `main.py`
+`config.py`, `bot.py`, `main.py`, `health.py`
 
 ### app/database/
 `engine.py`, `base.py`, `types.py`
@@ -58,7 +59,7 @@
 `worker.py`, `jobs.py`
 
 ### app/utils/
-`formatting.py`, `pagination.py`, `helpers.py`
+`formatting.py`, `pagination.py`, `helpers.py`, `redis.py`, `logging_config.py`
 
 ### tests/
 `conftest.py`, `test_encryption.py`, `test_services.py`, `test_handlers/test_start.py`
@@ -78,4 +79,4 @@ uv run pytest tests/ -v --cov=app --cov-report=term-missing
 
 ## Следующие шаги
 
-См. `roadmap.md` — приоритеты P2/P3.
+См. `roadmap.md` — приоритеты P3.

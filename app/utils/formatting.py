@@ -20,7 +20,7 @@ def format_order_message(order: Order, user: User | None = None, payment_link: s
     ]
 
     if payment_link:
-        parts.extend(["", f"Реквизиты оплаты:", payment_link])
+        parts.extend(["", "Реквизиты оплаты:", payment_link])
 
     parts.extend(["", "После оплаты ожидайте подтверждения оператором."])
     return "\n".join(parts)

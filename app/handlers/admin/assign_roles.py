@@ -5,14 +5,14 @@ FSM is now started from the management panel (mgmt:assign_operator / mgmt:assign
 
 import logging
 
-from aiogram import Router, F
+from aiogram import Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.user import RoleEnum, User
 from app.fsm.role_states import AssignAdminStates, AssignOperatorStates
-from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
+from app.keyboards.cancel_kb import get_main_keyboard
 from app.services.notification_service import NotificationService
 from app.services.user_service import UserService
 from app.utils.helpers import check_fsm_attempts, get_settings_flags

@@ -1,6 +1,6 @@
 """Notification chat repository."""
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.notification_chat import NotificationChat
@@ -11,8 +11,10 @@ class NotificationRepository(BaseRepository[NotificationChat]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(NotificationChat, session)
 
-    async def get_all_chats(self) -> list[NotificationChat]:
+    async def get_all_chats(self, active_only: bool = True) -> list[NotificationChat]:
         stmt = select(NotificationChat).order_by(NotificationChat.created_at)
+        if active_only:
+            stmt = stmt.where(NotificationChat.is_active.is_(True))
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -31,3 +33,14 @@ class NotificationRepository(BaseRepository[NotificationChat]):
         await self.session.delete(chat)
         await self.session.flush()
         return True
+
+    async def deactivate_chat(self, chat_id: int) -> bool:
+        """Deactivate a chat after repeated notification failures."""
+        stmt = (
+            update(NotificationChat)
+            .where(NotificationChat.chat_id == chat_id)
+            .values(is_active=False)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.flush()
+        return result.rowcount > 0

@@ -2,12 +2,11 @@
 
 import logging
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings as app_settings
-from app.database.models.user import User
 from app.keyboards.inline_kb import order_operator_kb, pagination_kb
 from app.services.order_service import OrderService
 from app.services.user_service import UserService

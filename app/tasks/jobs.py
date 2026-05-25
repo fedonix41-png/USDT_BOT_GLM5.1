@@ -2,27 +2,48 @@
 
 import logging
 
-from arq import Retry
 from aiogram import Bot
+from aiogram.exceptions import TelegramForbiddenError, TelegramNotFound
+from arq import Retry
 
 from app.config import settings as app_settings
 from app.database.engine import async_session_maker
-from app.database.models.order import OrderTypeEnum, OrderStatusEnum
-from app.database.models.user import User
+from app.database.models.order import OrderStatusEnum, OrderTypeEnum
+from app.repositories.notification_repo import NotificationRepository
 from app.services.encryption import EncryptionService
-from app.services.notification_service import NotificationService
 from app.services.order_service import OrderService
 from app.services.settings_service import SettingsService
 from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
 
+MAX_RETRIES = 3
+
+
+async def _deactivate_chat_and_notify_admin(chat_id: int, reason: str) -> None:
+    """Deactivate notification chat and notify super admin."""
+    async with async_session_maker() as session:
+        notif_repo = NotificationRepository(session)
+        deactivated = await notif_repo.deactivate_chat(chat_id)
+        if deactivated:
+            logger.warning(f"Deactivated notification chat {chat_id}: {reason}")
+            try:
+                bot = Bot(token=app_settings.BOT_TOKEN)
+                await bot.send_message(
+                    chat_id=app_settings.SUPER_ADMIN_TELEGRAM_ID,
+                    text=f"⚠️ Чат уведомлений {chat_id} деактивирован.\nПричина: {reason}",
+                )
+                await bot.session.close()
+            except Exception as e:
+                logger.error(f"Failed to notify super admin about deactivation: {e}")
+        await session.commit()
+
 
 async def send_notification(ctx: dict, chat_ids: list[int], text: str) -> list[bool]:
     """Send notification message to all specified chat IDs.
 
     Args:
-        ctx: ARQ context.
+        ctx: ARQ context with 'job_try' for retry count.
         chat_ids: List of chat IDs to send notification to.
         text: Message text to send.
 
@@ -31,14 +52,28 @@ async def send_notification(ctx: dict, chat_ids: list[int], text: str) -> list[b
     """
     bot = Bot(token=app_settings.BOT_TOKEN)
     results = []
+    current_try = ctx.get("job_try", 1)
 
     for chat_id in chat_ids:
         try:
             await bot.send_message(chat_id=chat_id, text=text)
             results.append(True)
+        except TelegramForbiddenError as e:
+            logger.error(f"Bot blocked by chat {chat_id}: {e}")
+            await _deactivate_chat_and_notify_admin(chat_id, "Бот заблокирован пользователем")
+            results.append(False)
+        except TelegramNotFound as e:
+            logger.error(f"Chat {chat_id} not found: {e}")
+            await _deactivate_chat_and_notify_admin(chat_id, "Чат не найден")
+            results.append(False)
         except Exception as e:
             logger.error(f"Failed to send notification to chat {chat_id}: {e}")
-            raise Retry(defer=5)
+            if current_try >= MAX_RETRIES:
+                await _deactivate_chat_and_notify_admin(chat_id, f"Не удалось доставить после {MAX_RETRIES} попыток")
+                results.append(False)
+            else:
+                await bot.session.close()
+                raise Retry(defer=5)
 
     await bot.session.close()
     return results

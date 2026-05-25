@@ -2,17 +2,16 @@
 
 import logging
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.types import CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings as app_settings
 from app.database.models.order import OrderStatusEnum
 from app.services.encryption import EncryptionService
-from app.config import settings as app_settings
 from app.services.notification_service import NotificationService
 from app.services.order_service import OrderService
 from app.services.user_service import UserService
-from app.utils.formatting import format_order_message
 
 logger = logging.getLogger(__name__)
 

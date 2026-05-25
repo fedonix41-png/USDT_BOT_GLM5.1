@@ -1,8 +1,8 @@
 """Middleware for checking bot_enabled flag — blocks client access when bot is disabled."""
 
 import logging
-import time
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message, TelegramObject
@@ -10,17 +10,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.global_settings import GlobalSettings
 from app.database.models.user import RoleEnum, User
+from app.utils.redis import get_cached_flag, set_cached_flag
 
 logger = logging.getLogger(__name__)
 
-_bot_enabled_cache: dict[str, Any] = {"value": True, "timestamp": 0.0}
+CACHE_TTL = 30
 
 
 class BotStatusMiddleware(BaseMiddleware):
     """Blocks client actions when bot is disabled (bot_enabled=0).
 
     Operators and admins always pass through.
-    Uses a 30-second in-memory cache to reduce DB load.
+    Uses Redis cache with TTL to reduce DB load and support multiple instances.
     """
 
     async def __call__(
@@ -38,20 +39,20 @@ class BotStatusMiddleware(BaseMiddleware):
         if user.role in (RoleEnum.super_admin, RoleEnum.admin, RoleEnum.operator):
             return await handler(event, data)
 
-        now = time.monotonic()
-        cache_age = now - _bot_enabled_cache["timestamp"]
-
-        if cache_age > 30:
-            try:
+        try:
+            cached = await get_cached_flag("bot_enabled", ttl=CACHE_TTL)
+            if cached is not None:
+                is_enabled = cached == "1"
+            else:
                 result = await session.get(GlobalSettings, "bot_enabled")
                 value = result.value if result else "1"
-                _bot_enabled_cache["value"] = value == "1"
-                _bot_enabled_cache["timestamp"] = now
-            except Exception as e:
-                logger.error(f"Error checking bot status: {e}")
-                _bot_enabled_cache["value"] = True
+                is_enabled = value == "1"
+                await set_cached_flag("bot_enabled", value, ttl=CACHE_TTL)
+        except Exception as e:
+            logger.error(f"Error checking bot status: {e}")
+            is_enabled = True
 
-        if not _bot_enabled_cache["value"]:
+        if not is_enabled:
             if isinstance(event, CallbackQuery):
                 await event.answer("Бот временно недоступен.", show_alert=True)
                 return

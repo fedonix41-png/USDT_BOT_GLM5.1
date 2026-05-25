@@ -4,6 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "aiogram==3.15.*",
+    "aiohttp>=3.9.0,<3.11",
     "sqlalchemy[asyncio]==2.0.*",
     "asyncpg==0.30.*",
     "alembic==1.14.*",

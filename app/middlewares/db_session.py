@@ -1,7 +1,8 @@
 """Middleware for injecting async DB session into handler data."""
 
 import logging
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
@@ -37,7 +38,7 @@ class DBSessionMiddleware(BaseMiddleware):
                     raise
         except (DBAPIError, SQLAlchemyError, OSError) as e:
             logger.error("Database connection error: %s", e)
-            
+
             try:
                 if hasattr(event, "answer"):
                     await event.answer("Сервис временно недоступен. Попробуйте позже.")
@@ -45,5 +46,5 @@ class DBSessionMiddleware(BaseMiddleware):
                     await event.message.answer("Сервис временно недоступен. Попробуйте позже.")
             except Exception as notify_error:
                 logger.error("Failed to notify user about DB error: %s", notify_error)
-            
+
             return None

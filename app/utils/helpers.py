@@ -1,6 +1,5 @@
 """Shared helper utilities for handlers."""
 
-from typing import Tuple
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
@@ -29,7 +28,7 @@ async def check_fsm_attempts(
     state: FSMContext,
     message: Message,
     error_msg: str = "Введите корректное значение.",
-) -> Tuple[bool, int]:
+) -> tuple[bool, int]:
     """Check FSM input attempts and increment counter.
     
     Returns:
@@ -38,12 +37,12 @@ async def check_fsm_attempts(
     """
     data = await state.get_data()
     attempts = data.get("_attempts", 0) + 1
-    
+
     if attempts >= MAX_FSM_ATTEMPTS:
         await message.answer("Слишком много ошибок. Операция отменена.")
         await state.clear()
         return False, attempts
-    
+
     await state.update_data(_attempts=attempts)
     await message.answer(error_msg)
     return True, attempts

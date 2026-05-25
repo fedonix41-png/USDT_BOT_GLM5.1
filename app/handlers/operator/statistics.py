@@ -6,7 +6,7 @@ FSM StatisticsStates manages the two-step flow: start date → end date.
 
 import logging
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message

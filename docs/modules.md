@@ -4,7 +4,8 @@
 app/
 ├── config.py           # Pydantic Settings — все переменные окружения
 ├── bot.py              # Dispatcher, роутеры, middleware registration
-├── main.py             # Entry point — запуск Long Polling
+├── main.py             # Entry point — запуск Long Polling + health server
+├── health.py           # HTTP healthcheck endpoints (/health, /ready, /live)
 │
 ├── database/
 │   ├── engine.py       # AsyncEngine, AsyncSessionMaker
@@ -45,7 +46,7 @@ app/
 │   ├── throttling.py        # Антиспам (1/сек команды, 5/мин FSM, 3/сек сообщения)
 │   ├── db_session.py       # Инъекция AsyncSession + обработка потери БД
 │   ├── user_middleware.py  # Загрузка user + проверка is_blocked
-│   ├── bot_status.py       # Проверка bot_enabled (кеш 30 сек)
+│   ├── bot_status.py       # Проверка bot_enabled (Redis кеш 30 сек)
 │   └── role_guard.py       # RoleFilter — проверка min_role
 │
 ├── keyboards/
@@ -71,7 +72,9 @@ app/
 └── utils/
     ├── formatting.py   # HTML-экранирование для Telegram
     ├── pagination.py   # Утилиты пагинации
-    └── helpers.py      # get_settings_flags, check_fsm_attempts, reset_fsm_attempts
+    ├── helpers.py      # get_settings_flags, check_fsm_attempts, reset_fsm_attempts
+    ├── redis.py        # Redis connection pool, cached flags
+    └── logging_config.py # JSON logging formatter
 ```
 
 ---
@@ -141,8 +144,13 @@ Request → ThrottlingMiddleware (outermost)
 
 | Задача | Триггер | Действие |
 |--------|---------|----------|
-| send_notification | Создание заявки, жалоба, назначение роли, завершение | Отправка сообщения в чат (max_tries=3) |
+| send_notification | Создание заявки, жалоба, назначение роли, завершение | Отправка сообщения в чат (max_tries=3, деактивация чата при ошибках) |
 | update_broken_links | Смена реквизитов админом | Редактирование сообщений клиентов с битой ссылкой |
+
+**Обработка ошибок send_notification:**
+- `TelegramForbiddenError` — бот заблокирован → деактивация чата, уведомление SuperAdmin
+- `TelegramNotFound` — чат не найден → деактивация чата, уведомление SuperAdmin
+- Исчерпание попыток (max_tries=3) → деактивация чата, уведомление SuperAdmin
 
 ---
 
@@ -158,6 +166,9 @@ ENCRYPTION_KEY: str  # 64-char hex = 32 bytes AES-256
 SUPER_ADMIN_TELEGRAM_ID: int
 ORDERS_PER_PAGE: int = 5
 ARQ_REDIS_URL: str = "redis://localhost:6379/1"
+LOG_LEVEL: str = "INFO"
+JSON_LOGS: bool = False
+HEALTH_PORT: int = 8080
 ```
 
 ### global_settings (ключи)

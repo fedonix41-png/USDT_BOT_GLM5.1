@@ -5,7 +5,7 @@ FSM is now started from the management panel (mgmt:chats callback).
 
 import logging
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.user import RoleEnum, User
 from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
-from app.keyboards.inline_kb import chat_list_kb, notification_chats_menu_kb
+from app.keyboards.inline_kb import chat_list_kb
 from app.services.notification_service import NotificationService
 from app.services.user_service import UserService
 from app.utils.helpers import get_settings_flags

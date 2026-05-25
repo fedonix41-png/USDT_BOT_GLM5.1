@@ -6,7 +6,7 @@ Must be registered BEFORE specific FSM handlers so it takes priority.
 
 import logging
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession

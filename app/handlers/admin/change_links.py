@@ -5,7 +5,7 @@ FSM is now started from the management panel (mgmt:links callback).
 
 import logging
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,8 +14,7 @@ from app.config import settings as app_settings
 from app.database.models.order import OrderTypeEnum
 from app.database.models.user import RoleEnum, User
 from app.fsm.links_states import ChangeLinksStates
-from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
-from app.keyboards.inline_kb import link_type_kb
+from app.keyboards.cancel_kb import get_main_keyboard
 from app.services.encryption import EncryptionService
 from app.services.order_service import OrderService
 from app.services.settings_service import SettingsService

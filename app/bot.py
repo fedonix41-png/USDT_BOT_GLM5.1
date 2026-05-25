@@ -7,15 +7,17 @@ from aiogram.exceptions import TelegramAPIError
 from aiogram.types import ErrorEvent
 
 from app.config import settings
-from app.handlers.admin import change_links, change_rate, assign_roles, management, notification_chats, toggle_flags
+from app.handlers.admin import assign_roles, change_links, change_rate, management, notification_chats, toggle_flags
 from app.handlers.client import buy, cancel_order, rates, sell, support
-from app.handlers.common import broken_link, cancel, calendar
+from app.handlers.common import broken_link, calendar, cancel
 from app.handlers.operator import active_orders, complete_order, statistics
 from app.handlers.start import router as start_router
 from app.middlewares.bot_status import BotStatusMiddleware
 from app.middlewares.db_session import DBSessionMiddleware
 from app.middlewares.role_guard import RoleGuardMiddleware
-from app.middlewares.throttling import ThrottlingMiddleware
+
+# DISABLED FOR DEBUGGING:
+# from app.middlewares.throttling import ThrottlingMiddleware
 from app.middlewares.user_middleware import UserMiddleware
 
 logger = logging.getLogger(__name__)
@@ -34,8 +36,9 @@ def setup_dispatcher() -> Dispatcher:
     # Register middlewares — ORDER MATTERS!
     # First registered = outermost (wraps everything).
     # Execution order: Throttling → DBSession → User → BotStatus → RoleGuard → handler
-    dp.message.middleware(ThrottlingMiddleware())
-    dp.callback_query.middleware(ThrottlingMiddleware())
+    # DISABLED FOR DEBUGGING:
+    # dp.message.middleware(ThrottlingMiddleware())
+    # dp.callback_query.middleware(ThrottlingMiddleware())
 
     dp.message.middleware(DBSessionMiddleware())
     dp.callback_query.middleware(DBSessionMiddleware())

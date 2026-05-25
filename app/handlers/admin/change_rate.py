@@ -6,11 +6,12 @@ FSM is now started from the management panel (mgmt:rate_buy / mgmt:rate_sell cal
 import logging
 from decimal import Decimal, InvalidOperation
 
-from aiogram import Router, F
+from aiogram import Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database.models.rate import RateTypeEnum
 from app.database.models.user import RoleEnum, User
 from app.fsm.rate_states import ChangeBuyRateStates, ChangeSellRateStates
 from app.keyboards.cancel_kb import get_main_keyboard
@@ -50,7 +51,7 @@ async def process_new_buy_rate(
         return
 
     rate_service = RateService(session)
-    await rate_service.set_rate("buy", new_rate, user.id)
+    await rate_service.set_rate(RateTypeEnum.buy, new_rate, user.id)
 
     flags = await get_settings_flags(session)
     kb = get_main_keyboard(
@@ -93,7 +94,7 @@ async def process_new_sell_rate(
         return
 
     rate_service = RateService(session)
-    await rate_service.set_rate("sell", new_rate, user.id)
+    await rate_service.set_rate(RateTypeEnum.sell, new_rate, user.id)
 
     flags = await get_settings_flags(session)
     kb = get_main_keyboard(

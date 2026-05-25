@@ -1,12 +1,13 @@
 """Middleware for loading user from database into handler data."""
 
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.user import RoleEnum, User
+from app.database.models.user import RoleEnum
 from app.repositories.user_repo import UserRepository
 
 

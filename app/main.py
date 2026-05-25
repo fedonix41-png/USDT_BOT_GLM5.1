@@ -3,17 +3,16 @@
 import asyncio
 import logging
 import signal
-import sys
 
 from aiogram import Bot, Dispatcher
 
 from app.bot import setup_bot, setup_dispatcher
 from app.database.engine import engine
+from app.health import start_health_server
+from app.utils.logging_config import setup_logging
+from app.utils.redis import close_redis
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+setup_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +49,7 @@ class GracefulShutdown:
         if self.bot:
             await self.bot.session.close()
         await engine.dispose()
+        await close_redis()
         logger.info("Graceful shutdown completed.")
 
 
@@ -60,6 +60,7 @@ async def main() -> None:
 
     shutdown.setup_signal_handlers()
 
+    await start_health_server()
     logger.info("Starting USDT Exchange Bot (Long Polling)...")
 
     try:

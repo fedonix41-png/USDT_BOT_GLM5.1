@@ -7,7 +7,7 @@ FSM-triggering actions (rate, links, chats, roles) start state machines.
 
 import logging
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +22,6 @@ from app.keyboards.management_kb import management_keyboard
 from app.services.encryption import EncryptionService
 from app.services.rate_service import RateService
 from app.services.settings_service import SettingsService
-from app.services.user_service import UserService
 from app.utils.helpers import get_settings_flags
 
 logger = logging.getLogger(__name__)
