@@ -6,7 +6,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.user import User
+from app.database.models.user import RoleEnum, User
 from app.repositories.user_repo import UserRepository
 
 
@@ -15,6 +15,9 @@ class UserMiddleware(BaseMiddleware):
     
     If the user is not found in the DB (hasn't started the bot yet),
     data['user'] will be None. The /start handler will create the user.
+    
+    Also checks if user is blocked. Blocked users (except admins) are
+    prevented from interacting with the bot.
     """
 
     async def __call__(
@@ -39,5 +42,17 @@ class UserMiddleware(BaseMiddleware):
             user_repo = UserRepository(session)
             user = await user_repo.get_by_telegram_id(from_user.id)
             data["user"] = user
+
+            if user and user.is_blocked:
+                if user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+                    if hasattr(event, "answer"):
+                        await event.answer(
+                            "Вы заблокированы. Обратитесь в поддержку."
+                        )
+                    elif hasattr(event, "message") and hasattr(event.message, "answer"):
+                        await event.message.answer(
+                            "Вы заблокированы. Обратитесь в поддержку."
+                        )
+                    return
 
         return await handler(event, data)

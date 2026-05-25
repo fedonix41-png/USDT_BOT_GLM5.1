@@ -15,7 +15,7 @@ from app.database.models.user import RoleEnum, User
 from app.fsm.rate_states import ChangeBuyRateStates, ChangeSellRateStates
 from app.keyboards.cancel_kb import get_main_keyboard
 from app.services.rate_service import RateService
-from app.utils.helpers import get_settings_flags
+from app.utils.helpers import check_fsm_attempts, get_settings_flags
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +33,15 @@ async def process_new_buy_rate(
     try:
         new_rate = Decimal(message.text.strip())
     except InvalidOperation:
-        await message.answer("Введите корректный курс (положительное число):")
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Введите корректный курс (положительное число):"
+        )
         return
 
     if new_rate <= 0:
-        await message.answer("Введите корректный курс (положительное число):")
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Введите корректный курс (положительное число):"
+        )
         return
 
     if user is None:
@@ -72,11 +76,15 @@ async def process_new_sell_rate(
     try:
         new_rate = Decimal(message.text.strip())
     except InvalidOperation:
-        await message.answer("Введите корректный курс (положительное число):")
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Введите корректный курс (положительное число):"
+        )
         return
 
     if new_rate <= 0:
-        await message.answer("Введите корректный курс (положительное число):")
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Введите корректный курс (положительное число):"
+        )
         return
 
     if user is None:

@@ -2,8 +2,13 @@
 
 import asyncio
 import logging
+import signal
+import sys
+
+from aiogram import Bot, Dispatcher
 
 from app.bot import setup_bot, setup_dispatcher
+from app.database.engine import engine
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,19 +18,63 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+class GracefulShutdown:
+    _instance = None
+
+    def __init__(self):
+        self.shutdown_event = asyncio.Event()
+        self.bot: Bot | None = None
+        self.dp: Dispatcher | None = None
+
+    @classmethod
+    def get_instance(cls) -> "GracefulShutdown":
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def setup_signal_handlers(self) -> None:
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            try:
+                loop.add_signal_handler(sig, lambda s=sig: self._signal_handler(s))
+            except NotImplementedError:
+                signal.signal(sig, lambda s, f: self._signal_handler(s))
+
+    def _signal_handler(self, sig: signal.Signals) -> None:
+        logger.info(f"Received signal {sig.name}, initiating graceful shutdown...")
+        self.shutdown_event.set()
+
+    async def shutdown(self) -> None:
+        if self.dp:
+            await self.dp.stop_polling()
+        if self.bot:
+            await self.bot.session.close()
+        await engine.dispose()
+        logger.info("Graceful shutdown completed.")
+
+
 async def main() -> None:
-    """Start the bot with long polling."""
-    bot = setup_bot()
-    dp = setup_dispatcher()
+    shutdown = GracefulShutdown.get_instance()
+    shutdown.bot = setup_bot()
+    shutdown.dp = setup_dispatcher()
+
+    shutdown.setup_signal_handlers()
 
     logger.info("Starting USDT Exchange Bot (Long Polling)...")
 
     try:
-        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+        await shutdown.dp.start_polling(
+            shutdown.bot,
+            allowed_updates=shutdown.dp.resolve_used_update_types(),
+        )
+    except Exception as e:
+        logger.exception(f"Unexpected error during polling: {e}")
     finally:
-        await bot.session.close()
-        logger.info("Bot stopped.")
+        await shutdown.shutdown()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user.")

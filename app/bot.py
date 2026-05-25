@@ -3,6 +3,8 @@
 import logging
 
 from aiogram import Bot, Dispatcher
+from aiogram.exceptions import TelegramAPIError
+from aiogram.types import ErrorEvent
 
 from app.config import settings
 from app.handlers.admin import change_links, change_rate, assign_roles, management, notification_chats, toggle_flags
@@ -13,6 +15,7 @@ from app.handlers.start import router as start_router
 from app.middlewares.bot_status import BotStatusMiddleware
 from app.middlewares.db_session import DBSessionMiddleware
 from app.middlewares.role_guard import RoleGuardMiddleware
+from app.middlewares.throttling import ThrottlingMiddleware
 from app.middlewares.user_middleware import UserMiddleware
 
 logger = logging.getLogger(__name__)
@@ -30,7 +33,10 @@ def setup_dispatcher() -> Dispatcher:
 
     # Register middlewares — ORDER MATTERS!
     # First registered = outermost (wraps everything).
-    # Execution order: DBSession → User → BotStatus → RoleGuard → handler
+    # Execution order: Throttling → DBSession → User → BotStatus → RoleGuard → handler
+    dp.message.middleware(ThrottlingMiddleware())
+    dp.callback_query.middleware(ThrottlingMiddleware())
+
     dp.message.middleware(DBSessionMiddleware())
     dp.callback_query.middleware(DBSessionMiddleware())
 
@@ -73,6 +79,27 @@ def setup_dispatcher() -> Dispatcher:
     dp.include_router(notification_chats.router)
     dp.include_router(assign_roles.router)
     dp.include_router(management.router)
+
+    @dp.errors()
+    async def global_error_handler(event: ErrorEvent) -> bool:
+        exception = event.exception
+        logger.exception("Unhandled exception in handler: %s", exception)
+
+        update = event.update
+        try:
+            if update.message:
+                await update.message.answer(
+                    "Произошла ошибка. Попробуйте позже или обратитесь в поддержку."
+                )
+            elif update.callback_query:
+                await update.callback_query.answer(
+                    "Произошла ошибка",
+                    show_alert=True,
+                )
+        except TelegramAPIError as e:
+            logger.error("Failed to send error message to user: %s", e)
+
+        return True
 
     logger.info("Dispatcher configured with all routers and middlewares")
     return dp

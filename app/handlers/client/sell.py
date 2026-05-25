@@ -22,7 +22,7 @@ from app.services.rate_service import RateService
 from app.services.settings_service import SettingsService
 from app.services.user_service import UserService
 from app.utils.formatting import format_order_message
-from app.utils.helpers import get_settings_flags
+from app.utils.helpers import check_fsm_attempts, get_settings_flags, reset_fsm_attempts
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +140,12 @@ async def process_sell_amount(message: Message, state: FSMContext, session: Asyn
 
 
 @router.message(OrderSellStates.waiting_amount)
-async def invalid_sell_amount(message: Message) -> None:
-    """Handle invalid amount input."""
-    await message.answer("Введите корректную сумму (положительное число, до 100000 USDT).")
+async def invalid_sell_amount(message: Message, state: FSMContext) -> None:
+    """Handle invalid amount input with attempt limit."""
+    should_continue, _ = await check_fsm_attempts(
+        state,
+        message,
+        "Введите корректную сумму (положительное число, до 100000 USDT).",
+    )
+    if not should_continue:
+        return

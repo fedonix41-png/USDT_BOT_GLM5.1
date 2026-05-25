@@ -42,8 +42,9 @@ app/
 │   └── common/         # broken_link.py, cancel.py (глобальная отмена FSM), calendar.py
 │
 ├── middlewares/
-│   ├── db_session.py       # Инъекция AsyncSession в data["session"]
-│   ├── user_middleware.py  # Загрузка user в data["user"]
+│   ├── throttling.py        # Антиспам (1/сек команды, 5/мин FSM, 3/сек сообщения)
+│   ├── db_session.py       # Инъекция AsyncSession + обработка потери БД
+│   ├── user_middleware.py  # Загрузка user + проверка is_blocked
 │   ├── bot_status.py       # Проверка bot_enabled (кеш 30 сек)
 │   └── role_guard.py       # RoleFilter — проверка min_role
 │
@@ -70,7 +71,7 @@ app/
 └── utils/
     ├── formatting.py   # HTML-экранирование для Telegram
     ├── pagination.py   # Утилиты пагинации
-    └── helpers.py      # get_settings_flags
+    └── helpers.py      # get_settings_flags, check_fsm_attempts, reset_fsm_attempts
 ```
 
 ---
@@ -91,7 +92,7 @@ handlers/ → services/ → repositories/ → models/
 
 **Поток данных:**
 1. Handler получает update от aiogram
-2. Middleware: DBSession → User → BotStatus → RoleGuard
+2. Middleware: Throttling → DBSession → User → BotStatus → RoleGuard
 3. Handler вызывает Service (бизнес-логика)
 4. Service вызывает Repository (данные)
 5. Repository работает с Model (ORM)
@@ -102,14 +103,17 @@ handlers/ → services/ → repositories/ → models/
 ## Middleware: порядок выполнения
 
 ```
-Request → DBSessionMiddleware (outermost)
+Request → ThrottlingMiddleware (outermost)
+        → DBSessionMiddleware
         → UserMiddleware
         → BotStatusMiddleware
         → RoleGuardMiddleware (innermost)
         → Handler
 ```
 
-**Важно:** DBSessionMiddleware должен быть первым (outermost), чтобы все последующие middleware имели доступ к `session`.
+**Важно:** 
+- ThrottlingMiddleware должен быть первым (outermost), чтобы блокировать спам до любой обработки.
+- DBSessionMiddleware должен быть вторым, чтобы все последующие middleware имели доступ к `session`.
 
 ---
 
@@ -126,6 +130,8 @@ Request → DBSessionMiddleware (outermost)
 | SupportStates | waiting_message | Обращение в поддержку |
 
 **Навигация:** Все FSM поддерживают кнопку «❌ Отмена» — при выходе восстанавливается основное меню по роли.
+
+**Лимит попыток:** FSM с текстовым вводом ограничены 3 попытками (`check_fsm_attempts()`). После 3 ошибок — автоматическая отмена.
 
 **Ввод дат:** Через inline-календарь (calendar_kb.py + handlers/common/calendar.py), не через текст.
 

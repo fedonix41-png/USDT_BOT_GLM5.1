@@ -12,8 +12,10 @@
 | 6. Уведомления и ARQ | ✅ |
 | 7. Тестирование | ✅ |
 | 8. Навигация и UX | ✅ |
+| 9. Production readiness (P0) | ✅ |
+| 10. Stability (P1) | ✅ |
 
-**MVP завершён на 100%.**
+**MVP завершён на 100%. P0 и P1 выполнены.**
 
 ---
 
@@ -44,7 +46,7 @@
 `start.py`, `client/`, `operator/`, `admin/`, `common/`
 
 ### app/middlewares/
-`db_session.py`, `user_middleware.py`, `bot_status.py`, `role_guard.py`
+`db_session.py`, `user_middleware.py`, `bot_status.py`, `role_guard.py`, `throttling.py`
 
 ### app/keyboards/
 `client_kb.py`, `operator_kb.py`, `admin_kb.py`, `cancel_kb.py`, `calendar_kb.py`, `inline_kb.py`
@@ -76,4 +78,4 @@ uv run pytest tests/ -v --cov=app --cov-report=term-missing
 
 ## Следующие шаги
 
-См. `roadmap.md` — приоритеты P0/P1/P2/P3.
+См. `roadmap.md` — приоритеты P2/P3.

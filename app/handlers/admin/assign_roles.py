@@ -15,7 +15,7 @@ from app.fsm.role_states import AssignAdminStates, AssignOperatorStates
 from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
 from app.services.notification_service import NotificationService
 from app.services.user_service import UserService
-from app.utils.helpers import get_settings_flags
+from app.utils.helpers import check_fsm_attempts, get_settings_flags
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +33,18 @@ async def process_assign_operator(
     try:
         target_telegram_id = int(message.text.strip())
     except ValueError:
-        await message.answer("Введите корректный Telegram ID (число).")
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Введите корректный Telegram ID (число)."
+        )
         return
 
     user_service = UserService(session)
     target_user = await user_service.get_by_telegram_id(target_telegram_id)
 
     if target_user is None:
-        await message.answer("Пользователь не найден. Он должен сначала запустить бота (/start).")
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Пользователь не найден. Он должен сначала запустить бота (/start)."
+        )
         return
 
     if user is None:
@@ -90,7 +94,9 @@ async def process_assign_admin(
     try:
         target_telegram_id = int(message.text.strip())
     except ValueError:
-        await message.answer("Введите корректный Telegram ID (число).")
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Введите корректный Telegram ID (число)."
+        )
         return
 
     user_service = UserService(session)
@@ -101,7 +107,9 @@ async def process_assign_admin(
 
     target_user = await user_service.get_by_telegram_id(target_telegram_id)
     if target_user is None:
-        await message.answer("Пользователь не найден. Он должен сначала запустить бота (/start).")
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Пользователь не найден. Он должен сначала запустить бота (/start)."
+        )
         return
 
     updated_user = await user_service.set_role(target_user.id, RoleEnum.admin, user.id)
