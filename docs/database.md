@@ -12,6 +12,8 @@
 
 Роли пользователей с иерархией прав.
 
+**Имя типа в PostgreSQL:** `user_role`
+
 | Значение | Описание | Уровень |
 |----------|----------|---------|
 | `super_admin` | Суперадминистратор | 4 (максимальный) |
@@ -23,6 +25,8 @@
 
 Тип заявки.
 
+**Имя типа в PostgreSQL:** `order_type`
+
 | Значение | Описание |
 |----------|----------|
 | `buy` | Покупка USDT клиентом |
@@ -31,6 +35,8 @@
 ### OrderStatusEnum
 
 Статус заявки.
+
+**Имя типа в PostgreSQL:** `order_status`
 
 | Значение | Описание |
 |----------|----------|
@@ -41,6 +47,8 @@
 ### RateTypeEnum
 
 Тип курса.
+
+**Имя типа в PostgreSQL:** `rate_type`
 
 | Значение | Описание |
 |----------|----------|
@@ -296,3 +304,13 @@
 - Команда применения: `uv run alembic upgrade head`
 - Новая миграция: `uv run alembic revision --autogenerate -m "описание"`
 - Для тестов: in-memory SQLite с `create_all()` (без миграций)
+
+**Важно:** имена PostgreSQL enum-типов в ORM-моделях должны совпадать с именами в миграции. При использовании `Enum(RoleEnum)` SQLAlchemy генерирует имя по имени класса в нижнем регистре (`roleenum`), но миграция создаёт тип `user_role`. Поэтому в ORM-моделях необходимо явно указывать `name=`:
+
+```python
+# Правильно — имя совпадает с миграцией:
+role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum, name="user_role"), ...)
+
+# Неправильно — SQLAlchemy сгенерирует "roleenum", которого нет в БД:
+role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), ...)
+```

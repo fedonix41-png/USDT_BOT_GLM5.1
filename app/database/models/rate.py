@@ -17,7 +17,7 @@ class Rate(Base):
     __tablename__ = "rates"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    rate_type: Mapped[RateTypeEnum] = mapped_column(Enum(RateTypeEnum), nullable=False)
+    rate_type: Mapped[RateTypeEnum] = mapped_column(Enum(RateTypeEnum, name="rate_type"), nullable=False)
     value: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     set_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)

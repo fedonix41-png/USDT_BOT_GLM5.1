@@ -6,7 +6,7 @@
 |-----------|--------|------------|
 | Python | 3.11+ | Локальная разработка, выполнение Alembic миграций |
 | Docker | 20.10+ | Контейнеризация сервисов |
-| Docker Compose | 2.0+ | Оркестрация контейнеров |
+| Docker Compose | 2.0+ | Оркестрация контейнеров (команда `docker compose`) |
 | uv | latest | Менеджер пакетов Python (устанавливается автоматически в Docker) |
 
 ## Пошаговая установка
@@ -69,13 +69,13 @@ docker compose run --rm bot uv sync
 ### Шаг 4. Запуск инфраструктуры (PostgreSQL + Redis)
 
 ```bash
-docker-compose up -d postgres redis
+docker compose up -d postgres redis
 ```
 
 Дождитесь готовности (healthcheck):
 
 ```bash
-docker-compose ps
+docker compose ps
 # Убедитесь, что postgres и redis имеют статус "healthy"
 ```
 
@@ -88,7 +88,7 @@ uv run alembic upgrade head
 Или через Docker:
 
 ```bash
-docker-compose run --rm bot uv run alembic upgrade head
+docker compose run --rm bot uv run alembic upgrade head
 ```
 
 Эта команда создаст все 6 таблиц (`users`, `orders`, `rates`, `global_settings`, `notification_chats`, `audit_logs`), enum-типы и индексы.
@@ -96,13 +96,13 @@ docker-compose run --rm bot uv run alembic upgrade head
 ### Шаг 6. Запуск всех сервисов
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 Проверьте статус контейнеров:
 
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 Все 4 сервиса должны быть запущены: `postgres`, `redis`, `bot`, `arq-worker`.
@@ -110,7 +110,7 @@ docker-compose ps
 ### Шаг 7. Проверка логов
 
 ```bash
-docker-compose logs -f bot
+docker compose logs -f bot
 ```
 
 Убедитесь, что бот успешно подключился и начал Long Polling.
@@ -154,7 +154,7 @@ docker-compose logs -f bot
 ### Остановка
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 Данные PostgreSQL сохраняются в volume `pgdata`.
@@ -162,41 +162,41 @@ docker-compose down
 ### Полная остановка с удалением данных
 
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 ### Перезапуск отдельного сервиса
 
 ```bash
-docker-compose restart bot
-docker-compose restart arq-worker
+docker compose restart bot
+docker compose restart arq-worker
 ```
 
 ### Просмотр логов
 
 ```bash
 # Все сервисы
-docker-compose logs -f
+docker compose logs -f
 
 # Конкретный сервис
-docker-compose logs -f bot
-docker-compose logs -f arq-worker
+docker compose logs -f bot
+docker compose logs -f arq-worker
 
 # Последние 100 строк
-docker-compose logs --tail=100 bot
+docker compose logs --tail=100 bot
 ```
 
 ### Выполнение команд внутри контейнера
 
 ```bash
 # Миграции
-docker-compose exec bot uv run alembic upgrade head
+docker compose exec bot uv run alembic upgrade head
 
-# Python- shell
-docker-compose exec bot uv run python
+# Python-shell
+docker compose exec bot uv run python
 
 # Проверка подключения к PostgreSQL
-docker-compose exec postgres psql -U usdt_bot -c "SELECT * FROM users;"
+docker compose exec postgres psql -U usdt_bot -c "SELECT * FROM users;"
 ```
 
 ## Обновление
@@ -205,8 +205,8 @@ docker-compose exec postgres psql -U usdt_bot -c "SELECT * FROM users;"
 
 ```bash
 git pull
-docker-compose build
-docker-compose up -d
+docker compose build
+docker compose up -d
 ```
 
 ### Новая миграция
@@ -219,20 +219,20 @@ uv run alembic upgrade head
 ### Пересоздание базы данных
 
 ```bash
-docker-compose down -v
-docker-compose up -d postgres redis
+docker compose down -v
+docker compose up -d postgres redis
 uv run alembic upgrade head
-docker-compose up -d
+docker compose up -d
 ```
 
 ## Устранение неполадок
 
 | Проблема | Решение |
 |----------|---------|
-| `bot` падает с ошибкой подключения к PostgreSQL | Проверьте `DATABASE_URL` в `.env`, убедитесь что `postgres` healthy: `docker-compose ps` |
+| `bot` падает с ошибкой подключения к PostgreSQL | Проверьте `DATABASE_URL` в `.env`, убедитесь что `postgres` healthy: `docker compose ps` |
 | `bot` падает с ошибкой `ENCRYPTION_KEY` | Убедитесь, что ключ — 64-символьная hex-строка |
 | ARQ Worker не запускается | Проверьте `REDIS_URL` и что Redis healthy |
 | Миграции не выполняются | Убедитесь, что PostgreSQL запущен и доступен по адресу из `DATABASE_URL` |
-| Бот не отвечает на /start | Проверьте `BOT_TOKEN` в `.env`, проверьте логи: `docker-compose logs bot` |
+| Бот не отвечает на /start | Проверьте `BOT_TOKEN` в `.env`, проверьте логи: `docker compose logs bot` |
 | Курс не установлен | SuperAdmin должен задать курс через меню бота |
 | Реквизиты не настроены | SuperAdmin должен задать реквизиты через «🔗 Сменить реквизиты» |

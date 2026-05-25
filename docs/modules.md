@@ -85,7 +85,7 @@ class Base(DeclarativeBase):
 | `telegram_id` | `BIGINT UNIQUE` | Telegram ID пользователя |
 | `username` | `String(255)` | Telegram username (может быть None) |
 | `full_name` | `String(255)` | Полное имя (может быть None) |
-| `role` | `Enum(RoleEnum)` | Роль: `super_admin`, `admin`, `operator`, `client` |
+| `role` | `Enum(RoleEnum, name="user_role")` | Роль: `super_admin`, `admin`, `operator`, `client` |
 | `is_blocked` | `Boolean` | Зарезервировано, default=False |
 | `created_at` | `TIMESTAMP` | Дата регистрации |
 
@@ -99,11 +99,11 @@ class Base(DeclarativeBase):
 |---------|-----|----------|
 | `id` | `SERIAL PK` | ID заявки |
 | `user_id` | `INT FK → users.id` | Клиент |
-| `order_type` | `Enum(OrderTypeEnum)` | `buy` или `sell` |
+| `order_type` | `Enum(OrderTypeEnum, name="order_type")` | `buy` или `sell` |
 | `amount_usdt` | `Numeric(18,8)` | Сумма в USDT |
 | `rate` | `Numeric(18,2)` | Курс на момент создания |
 | `total_fiat` | `Numeric(18,2)` | Сумма в фиате |
-| `status` | `Enum(OrderStatusEnum)` | `created`, `cancelled`, `completed` |
+| `status` | `Enum(OrderStatusEnum, name="order_status")` | `created`, `cancelled`, `completed` |
 | `payment_link_snapshot` | `TEXT` | Зашифрованные реквизиты на момент создания |
 | `link_broken` | `Boolean` | Флаг жалобы на ссылку |
 | `message_id` | `INT` | ID сообщения с заявкой в чате клиента |
@@ -120,7 +120,7 @@ class Base(DeclarativeBase):
 | Атрибут | Тип | Описание |
 |---------|-----|----------|
 | `id` | `SERIAL PK` | ID записи |
-| `rate_type` | `Enum(RateTypeEnum)` | `buy` или `sell` |
+| `rate_type` | `Enum(RateTypeEnum, name="rate_type")` | `buy` или `sell` |
 | `value` | `Numeric(18,2)` | Значение курса (RUB/USDT) |
 | `set_by` | `INT FK → users.id` | Админ, установивший курс |
 | `created_at` | `TIMESTAMP` | Дата установки |
@@ -555,11 +555,15 @@ SupportStates:
 ### worker.py — ARQ Worker конфигурация
 
 ```python
+from arq.connections import RedisSettings
+
 class WorkerSettings:
     functions = [send_notification, update_broken_links]
     redis_settings = RedisSettings.from_dsn(settings.ARQ_REDIS_URL)
     max_tries = 3
 ```
+
+**Важно:** `RedisSettings` импортируется из `arq.connections`, а не из `arq` напрямую (изменено в ARQ 0.26.x).
 
 Запуск: `uv run arq app.tasks.worker.WorkerSettings`
 

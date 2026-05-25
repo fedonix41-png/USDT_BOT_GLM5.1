@@ -24,12 +24,12 @@ class Order(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    order_type: Mapped[OrderTypeEnum] = mapped_column(Enum(OrderTypeEnum), nullable=False)
+    order_type: Mapped[OrderTypeEnum] = mapped_column(Enum(OrderTypeEnum, name="order_type"), nullable=False)
     amount_usdt: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     rate: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     total_fiat: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     status: Mapped[OrderStatusEnum] = mapped_column(
-        Enum(OrderStatusEnum), default=OrderStatusEnum.created, nullable=False
+        Enum(OrderStatusEnum, name="order_status"), default=OrderStatusEnum.created, nullable=False
     )
     payment_link_snapshot: Mapped[str | None] = mapped_column(Text)
     link_broken: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
