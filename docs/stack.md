@@ -34,8 +34,9 @@
 |-----------|------------|
 | `app/utils/formatting.py` | Форматирование сообщений в HTML-разметке Telegram (экранирование, шаблоны) |
 | `app/utils/pagination.py` | Утилиты пагинации для списков заявок и чатов |
+| `app/utils/helpers.py` | Общие вспомогательные функции (`get_settings_flags` — получение флагов настроек из БД) |
 | `app/fsm/` | Определения FSM-состояний для многошаговых сценариев (OrderCreation, StatisticsPeriod, ChangeRate, ChangeLinks, AssignRole, SupportChat) |
-| `app/keyboards/` | Генерация Reply и Inline клавиатур (client_kb, operator_kb, admin_kb, inline_kb) |
+| `app/keyboards/` | Генерация Reply и Inline клавиатур (client_kb, operator_kb, admin_kb, cancel_kb, calendar_kb, inline_kb) |
 
 ## Выбор технологий: обоснование
 

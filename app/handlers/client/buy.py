@@ -13,6 +13,7 @@ from app.config import settings as app_settings
 from app.database.models.order import OrderTypeEnum
 from app.database.models.user import RoleEnum, User
 from app.fsm.order_states import OrderBuyStates
+from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
 from app.keyboards.client_kb import client_keyboard
 from app.keyboards.inline_kb import order_client_kb
 from app.services.encryption import EncryptionService
@@ -21,6 +22,7 @@ from app.services.rate_service import RateService
 from app.services.settings_service import SettingsService
 from app.services.user_service import UserService
 from app.utils.formatting import format_order_message
+from app.utils.helpers import get_settings_flags
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,10 @@ async def start_buy(message: Message, state: FSMContext, session: AsyncSession) 
         return
 
     await state.set_state(OrderBuyStates.waiting_amount)
-    await message.answer("Введите сумму в USDT, которую хотите купить.")
+    await message.answer(
+        "Введите сумму в USDT, которую хотите купить.",
+        reply_markup=cancel_keyboard(),
+    )
 
 
 @router.message(OrderBuyStates.waiting_amount, F.text.regexp(r"^\d+(\.\d+)?$"))
@@ -58,6 +63,17 @@ async def process_buy_amount(message: Message, state: FSMContext, session: Async
     current_rate = await rate_service.get_current_rate(OrderTypeEnum.buy)
     if current_rate is None:
         await message.answer("Курс покупки не установлен. Обратитесь позже.")
+        flags = await get_settings_flags(session)
+        user_service = UserService(session)
+        user = await user_service.get_by_telegram_id(message.from_user.id)
+        kb = get_main_keyboard(
+            role=user.role if user else RoleEnum.client,
+            buy_enabled=flags["buy_enabled"],
+            sell_enabled=flags["sell_enabled"],
+            bot_enabled=flags["bot_enabled"],
+            is_super_admin=(user.role == RoleEnum.super_admin if user else False),
+        ) if user else client_keyboard()
+        await message.answer("Выберите действие:", reply_markup=kb)
         await state.clear()
         return
 
@@ -66,6 +82,17 @@ async def process_buy_amount(message: Message, state: FSMContext, session: Async
     payment_link = await settings_service.get_payment_link(OrderTypeEnum.buy)
     if not payment_link:
         await message.answer("Реквизиты не настроены. Обратитесь позже.")
+        flags = await get_settings_flags(session)
+        user_service = UserService(session)
+        user = await user_service.get_by_telegram_id(message.from_user.id)
+        kb = get_main_keyboard(
+            role=user.role if user else RoleEnum.client,
+            buy_enabled=flags["buy_enabled"],
+            sell_enabled=flags["sell_enabled"],
+            bot_enabled=flags["bot_enabled"],
+            is_super_admin=(user.role == RoleEnum.super_admin if user else False),
+        ) if user else client_keyboard()
+        await message.answer("Выберите действие:", reply_markup=kb)
         await state.clear()
         return
 
@@ -97,6 +124,17 @@ async def process_buy_amount(message: Message, state: FSMContext, session: Async
     notif_service = NotificationService(session)
     bot = message.bot
     await notif_service.notify_new_order(bot, order, user)
+
+    # Restore client main menu
+    flags = await get_settings_flags(session)
+    main_kb = get_main_keyboard(
+        role=user.role,
+        buy_enabled=flags["buy_enabled"],
+        sell_enabled=flags["sell_enabled"],
+        bot_enabled=flags["bot_enabled"],
+        is_super_admin=user.role == RoleEnum.super_admin,
+    )
+    await message.answer("Выберите действие:", reply_markup=main_kb)
 
     await state.clear()
     logger.info(f"Buy order #{order.id} created by user {user.telegram_id}, amount={amount}")

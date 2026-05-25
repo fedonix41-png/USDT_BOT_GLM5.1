@@ -7,32 +7,18 @@ from aiogram import Router, F
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.global_settings import GlobalSettings
-from app.database.models.order import OrderTypeEnum
 from app.database.models.rate import RateTypeEnum
 from app.database.models.user import RoleEnum, User
 from app.fsm.rate_states import ChangeBuyRateStates, ChangeSellRateStates
-from app.keyboards.admin_kb import admin_keyboard
-from app.keyboards.client_kb import client_keyboard
+from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
 from app.services.rate_service import RateService
-from app.services.user_service import UserService
+from app.utils.helpers import get_settings_flags
 
 logger = logging.getLogger(__name__)
 
 router = Router()
-
-
-async def _get_settings_flags(session: AsyncSession) -> dict:
-    """Get bot settings flags from DB."""
-    flags = {"bot_enabled": True, "buy_enabled": True, "sell_enabled": True}
-    for key in flags:
-        result = await session.get(GlobalSettings, key)
-        if result is not None:
-            flags[key] = result.value == "1"
-    return flags
 
 
 @router.message(F.text == "🔄 Сменить курс (покупка)", StateFilter(None))
@@ -44,12 +30,18 @@ async def start_change_buy_rate(message: Message, state: FSMContext, session: As
     current_str = str(current_rate) if current_rate else "Не установлен"
     await state.set_state(ChangeBuyRateStates.waiting_new_rate)
     await message.answer(
-        f"Текущий курс покупки: {current_str} RUB/USDT\nВведите новый курс:"
+        f"Текущий курс покупки: {current_str} RUB/USDT\nВведите новый курс:",
+        reply_markup=cancel_keyboard(),
     )
 
 
 @router.message(ChangeBuyRateStates.waiting_new_rate)
-async def process_new_buy_rate(message: Message, state: FSMContext, session: AsyncSession) -> None:
+async def process_new_buy_rate(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    user: User | None,
+) -> None:
     """Process new buy rate."""
     try:
         new_rate = Decimal(message.text.strip())
@@ -61,8 +53,6 @@ async def process_new_buy_rate(message: Message, state: FSMContext, session: Asy
         await message.answer("Введите корректный курс (положительное число):")
         return
 
-    user_service = UserService(session)
-    user = await user_service.get_by_telegram_id(message.from_user.id)
     if user is None:
         await message.answer("Ошибка.")
         await state.clear()
@@ -71,8 +61,9 @@ async def process_new_buy_rate(message: Message, state: FSMContext, session: Asy
     rate_service = RateService(session)
     await rate_service.set_rate(RateTypeEnum.buy, new_rate, user.id)
 
-    flags = await _get_settings_flags(session)
-    kb = admin_keyboard(
+    flags = await get_settings_flags(session)
+    kb = get_main_keyboard(
+        role=user.role,
         buy_enabled=flags["buy_enabled"],
         sell_enabled=flags["sell_enabled"],
         bot_enabled=flags["bot_enabled"],
@@ -92,12 +83,18 @@ async def start_change_sell_rate(message: Message, state: FSMContext, session: A
     current_str = str(current_rate) if current_rate else "Не установлен"
     await state.set_state(ChangeSellRateStates.waiting_new_rate)
     await message.answer(
-        f"Текущий курс продажи: {current_str} RUB/USDT\nВведите новый курс:"
+        f"Текущий курс продажи: {current_str} RUB/USDT\nВведите новый курс:",
+        reply_markup=cancel_keyboard(),
     )
 
 
 @router.message(ChangeSellRateStates.waiting_new_rate)
-async def process_new_sell_rate(message: Message, state: FSMContext, session: AsyncSession) -> None:
+async def process_new_sell_rate(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    user: User | None,
+) -> None:
     """Process new sell rate."""
     try:
         new_rate = Decimal(message.text.strip())
@@ -109,8 +106,6 @@ async def process_new_sell_rate(message: Message, state: FSMContext, session: As
         await message.answer("Введите корректный курс (положительное число):")
         return
 
-    user_service = UserService(session)
-    user = await user_service.get_by_telegram_id(message.from_user.id)
     if user is None:
         await message.answer("Ошибка.")
         await state.clear()
@@ -119,8 +114,9 @@ async def process_new_sell_rate(message: Message, state: FSMContext, session: As
     rate_service = RateService(session)
     await rate_service.set_rate(RateTypeEnum.sell, new_rate, user.id)
 
-    flags = await _get_settings_flags(session)
-    kb = admin_keyboard(
+    flags = await get_settings_flags(session)
+    kb = get_main_keyboard(
+        role=user.role,
         buy_enabled=flags["buy_enabled"],
         sell_enabled=flags["sell_enabled"],
         bot_enabled=flags["bot_enabled"],

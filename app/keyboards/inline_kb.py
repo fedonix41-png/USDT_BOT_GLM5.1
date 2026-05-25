@@ -65,7 +65,7 @@ def chat_list_kb(chats: list) -> InlineKeyboardMarkup:
 
 
 def notification_chats_menu_kb() -> InlineKeyboardMarkup:
-    """Submenu for notification chats management."""
+    """Submenu for notification chats management with a Back button."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -73,5 +73,6 @@ def notification_chats_menu_kb() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="➕ Добавить чат", callback_data="notif_add"),
             ],
             [InlineKeyboardButton(text="➖ Удалить чат", callback_data="notif_delete")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="notif_back")],
         ]
     )

@@ -6,40 +6,37 @@ from aiogram import Router, F
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.global_settings import GlobalSettings
 from app.database.models.user import RoleEnum, User
 from app.fsm.role_states import AssignAdminStates, AssignOperatorStates
-from app.keyboards.admin_kb import admin_keyboard
+from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
 from app.services.notification_service import NotificationService
 from app.services.user_service import UserService
-from app.utils.formatting import role_display_name
+from app.utils.helpers import get_settings_flags
 
 logger = logging.getLogger(__name__)
 
 router = Router()
 
 
-async def _get_settings_flags(session: AsyncSession) -> dict:
-    flags = {"bot_enabled": True, "buy_enabled": True, "sell_enabled": True}
-    for key in flags:
-        result = await session.get(GlobalSettings, key)
-        if result is not None:
-            flags[key] = result.value == "1"
-    return flags
-
-
 @router.message(F.text == "👤 Сделать Оператором", StateFilter(None))
 async def start_assign_operator(message: Message, state: FSMContext) -> None:
     """Initiate assign operator FSM."""
     await state.set_state(AssignOperatorStates.waiting_target_user)
-    await message.answer("Введите Telegram ID пользователя или перешлите его контакт:")
+    await message.answer(
+        "Введите Telegram ID пользователя или перешлите его контакт:",
+        reply_markup=cancel_keyboard(),
+    )
 
 
 @router.message(AssignOperatorStates.waiting_target_user)
-async def process_assign_operator(message: Message, state: FSMContext, session: AsyncSession) -> None:
+async def process_assign_operator(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    user: User | None,
+) -> None:
     """Process assigning operator role."""
     try:
         target_telegram_id = int(message.text.strip())
@@ -54,13 +51,12 @@ async def process_assign_operator(message: Message, state: FSMContext, session: 
         await message.answer("Пользователь не найден. Он должен сначала запустить бота (/start).")
         return
 
-    admin = await user_service.get_by_telegram_id(message.from_user.id)
-    if admin is None:
+    if user is None:
         await message.answer("Ошибка.")
         await state.clear()
         return
 
-    updated_user = await user_service.set_role(target_user.id, RoleEnum.operator, admin.id)
+    updated_user = await user_service.set_role(target_user.id, RoleEnum.operator, user.id)
     if updated_user is None:
         await message.answer("Ошибка назначения роли.")
         await state.clear()
@@ -78,12 +74,13 @@ async def process_assign_operator(message: Message, state: FSMContext, session: 
     await notif_service.notify_role_assigned(message.bot, updated_user, "Оператор")
 
     username_str = f"@{updated_user.username}" if updated_user.username else f"ID: {target_telegram_id}"
-    flags = await _get_settings_flags(session)
-    kb = admin_keyboard(
+    flags = await get_settings_flags(session)
+    kb = get_main_keyboard(
+        role=user.role,
         buy_enabled=flags["buy_enabled"],
         sell_enabled=flags["sell_enabled"],
         bot_enabled=flags["bot_enabled"],
-        is_super_admin=admin.role == RoleEnum.super_admin,
+        is_super_admin=user.role == RoleEnum.super_admin,
     )
     await message.answer(f"✅ Пользователь {username_str} теперь Оператор.", reply_markup=kb)
     await state.clear()
@@ -94,11 +91,19 @@ async def process_assign_operator(message: Message, state: FSMContext, session: 
 async def start_assign_admin(message: Message, state: FSMContext) -> None:
     """Initiate assign admin FSM (only for SuperAdmin)."""
     await state.set_state(AssignAdminStates.waiting_target_user)
-    await message.answer("Введите Telegram ID пользователя или перешлите его контакт:")
+    await message.answer(
+        "Введите Telegram ID пользователя или перешлите его контакт:",
+        reply_markup=cancel_keyboard(),
+    )
 
 
 @router.message(AssignAdminStates.waiting_target_user)
-async def process_assign_admin(message: Message, state: FSMContext, session: AsyncSession) -> None:
+async def process_assign_admin(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    user: User | None,
+) -> None:
     """Process assigning admin role."""
     try:
         target_telegram_id = int(message.text.strip())
@@ -107,8 +112,7 @@ async def process_assign_admin(message: Message, state: FSMContext, session: Asy
         return
 
     user_service = UserService(session)
-    caller = await user_service.get_by_telegram_id(message.from_user.id)
-    if caller is None or caller.role != RoleEnum.super_admin:
+    if user is None or user.role != RoleEnum.super_admin:
         await message.answer("У вас нет прав для этого действия.")
         await state.clear()
         return
@@ -118,7 +122,7 @@ async def process_assign_admin(message: Message, state: FSMContext, session: Asy
         await message.answer("Пользователь не найден. Он должен сначала запустить бота (/start).")
         return
 
-    updated_user = await user_service.set_role(target_user.id, RoleEnum.admin, caller.id)
+    updated_user = await user_service.set_role(target_user.id, RoleEnum.admin, user.id)
     if updated_user is None:
         await message.answer("Ошибка назначения роли.")
         await state.clear()
@@ -136,8 +140,9 @@ async def process_assign_admin(message: Message, state: FSMContext, session: Asy
     await notif_service.notify_role_assigned(message.bot, updated_user, "Администратор")
 
     username_str = f"@{updated_user.username}" if updated_user.username else f"ID: {target_telegram_id}"
-    flags = await _get_settings_flags(session)
-    kb = admin_keyboard(
+    flags = await get_settings_flags(session)
+    kb = get_main_keyboard(
+        role=user.role,
         buy_enabled=flags["buy_enabled"],
         sell_enabled=flags["sell_enabled"],
         bot_enabled=flags["bot_enabled"],

@@ -9,12 +9,12 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings as app_settings
-from app.database.models.user import RoleEnum
-from app.fsm.links_states import ChangeLinksStates
+from app.database.models.user import RoleEnum, User
+from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
 from app.keyboards.inline_kb import chat_list_kb, notification_chats_menu_kb
 from app.services.notification_service import NotificationService
 from app.services.user_service import UserService
+from app.utils.helpers import get_settings_flags
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class NotificationChatStates(StatesGroup):
     waiting_chat_id = State()
 
 
-@router.message(F.text == "➕ Чаты уведомлений")
+@router.message(F.text == "➕ Чаты уведомлений", StateFilter(None))
 async def notification_chats_menu(message: Message) -> None:
     """Show notification chats management menu."""
     kb = notification_chats_menu_kb()
@@ -53,12 +53,20 @@ async def list_chats(callback: CallbackQuery, session: AsyncSession) -> None:
 async def start_add_chat(callback: CallbackQuery, state: FSMContext) -> None:
     """Start adding a notification chat."""
     await state.set_state(NotificationChatStates.waiting_chat_id)
-    await callback.message.answer("Перешлите сообщение из нужного чата или введите Chat ID:")
+    await callback.message.answer(
+        "Перешлите сообщение из нужного чата или введите Chat ID:",
+        reply_markup=cancel_keyboard(),
+    )
     await callback.answer()
 
 
 @router.message(NotificationChatStates.waiting_chat_id)
-async def process_add_chat(message: Message, state: FSMContext, session: AsyncSession) -> None:
+async def process_add_chat(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    user: User | None,
+) -> None:
     """Process adding a notification chat."""
     try:
         chat_id = int(message.text.strip())
@@ -79,7 +87,10 @@ async def process_add_chat(message: Message, state: FSMContext, session: AsyncSe
         return
 
     user_service = UserService(session)
-    user = await user_service.get_by_telegram_id(message.from_user.id)
+    if user is None:
+        await message.answer("Ошибка.")
+        await state.clear()
+        return
 
     notif_service = NotificationService(session)
     existing = await notif_service.get_by_chat_id(chat_id)
@@ -88,6 +99,17 @@ async def process_add_chat(message: Message, state: FSMContext, session: AsyncSe
     else:
         await notif_service.add_chat(chat_id=chat_id, added_by=user.id)
         await message.answer(f"✅ Чат {chat_id} добавлен для уведомлений.")
+
+    # Restore admin main menu
+    flags = await get_settings_flags(session)
+    kb = get_main_keyboard(
+        role=user.role,
+        buy_enabled=flags["buy_enabled"],
+        sell_enabled=flags["sell_enabled"],
+        bot_enabled=flags["bot_enabled"],
+        is_super_admin=user.role == RoleEnum.super_admin,
+    )
+    await message.answer("Выберите действие:", reply_markup=kb)
 
     await state.clear()
     logger.info(f"Notification chat {chat_id} added by user {message.from_user.id}")
@@ -132,3 +154,10 @@ async def delete_chat(callback: CallbackQuery, session: AsyncSession) -> None:
         logger.info(f"Notification chat {target.chat_id} deleted")
     else:
         await callback.answer("Ошибка удаления.", show_alert=True)
+
+
+@router.callback_query(F.data == "notif_back")
+async def back_from_notif_menu(callback: CallbackQuery) -> None:
+    """Back button from notification chats submenu — dismiss inline keyboard."""
+    await callback.message.edit_text("Управление чатами закрыто.")
+    await callback.answer()

@@ -16,6 +16,8 @@
 
 ### Фаза 7: Тестирование — ✅ Завершено
 
+### Фаза 8: Навигация и UX — ✅ Завершено
+
 ---
 
 ## Сводка
@@ -29,6 +31,7 @@
 | 5. Админские функции | ✅ Завершено |
 | 6. Уведомления и ARQ | ✅ Завершено |
 | 7. Тестирование | ✅ Завершено |
+| 8. Навигация и UX | ✅ Завершено |
 
 **Общий прогресс:** 100%
 
@@ -64,7 +67,7 @@
 `buy.py`, `sell.py`, `rates.py`, `cancel_order.py`, `support.py`
 
 ### app/handlers/common/
-`broken_link.py`
+`broken_link.py`, `cancel.py`, `calendar.py`
 
 ### app/handlers/operator/
 `active_orders.py`, `complete_order.py`, `statistics.py`
@@ -76,7 +79,7 @@
 `db_session.py`, `bot_status.py`, `role_guard.py`, `user_middleware.py`
 
 ### app/keyboards/
-`client_kb.py`, `operator_kb.py`, `admin_kb.py`, `inline_kb.py`
+`client_kb.py`, `operator_kb.py`, `admin_kb.py`, `cancel_kb.py`, `calendar_kb.py`, `inline_kb.py`
 
 ### app/fsm/
 `order_states.py`, `statistics_states.py`, `rate_states.py`, `links_states.py`, `role_states.py`, `support_states.py`
@@ -85,7 +88,7 @@
 `worker.py`, `jobs.py`
 
 ### app/utils/
-`formatting.py`, `pagination.py`
+`formatting.py`, `pagination.py`, `helpers.py`
 
 ### tests/
 `conftest.py`, `test_encryption.py`, `test_services.py`, `test_handlers/test_start.py`

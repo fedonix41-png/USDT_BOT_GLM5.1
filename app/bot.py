@@ -7,7 +7,7 @@ from aiogram import Bot, Dispatcher
 from app.config import settings
 from app.handlers.admin import change_links, change_rate, assign_roles, notification_chats, toggle_flags
 from app.handlers.client import buy, cancel_order, rates, sell, support
-from app.handlers.common import broken_link
+from app.handlers.common import broken_link, cancel, calendar
 from app.handlers.operator import active_orders, complete_order, statistics
 from app.handlers.start import router as start_router
 from app.middlewares.bot_status import BotStatusMiddleware
@@ -43,7 +43,12 @@ def setup_dispatcher() -> Dispatcher:
     dp.message.middleware(DBSessionMiddleware())
     dp.callback_query.middleware(DBSessionMiddleware())
 
-    # Register routers
+    # Register routers — ORDER MATTERS for cancel handler!
+    # Cancel handler must be registered BEFORE specific FSM handlers
+    # so it catches "❌ Отмена" across all states.
+    dp.include_router(cancel.router)
+    dp.include_router(calendar.router)
+
     dp.include_router(start_router)
 
     # Client handlers

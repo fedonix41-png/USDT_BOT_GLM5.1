@@ -4,6 +4,7 @@ import logging
 
 from aiogram import Router
 from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,8 +42,11 @@ async def _get_user(session: AsyncSession, message: Message) -> User:
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, session: AsyncSession) -> None:
-    """Handle /start command."""
+async def cmd_start(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    """Handle /start command — clear any FSM state and show main menu."""
+    # Clear any stale FSM state (e.g. user pressed /start to escape a flow)
+    await state.clear()
+
     user = await _get_user(session, message)
     flags = await _get_settings_flags(session)
 
