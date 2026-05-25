@@ -1,0 +1,108 @@
+"""Handler for buying USDT — FSM OrderBuyStates."""
+
+import logging
+from decimal import Decimal
+
+from aiogram import Router, F
+from aiogram.filters import StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.types import Message
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings as app_settings
+from app.database.models.order import OrderTypeEnum
+from app.database.models.user import RoleEnum, User
+from app.fsm.order_states import OrderBuyStates
+from app.keyboards.client_kb import client_keyboard
+from app.keyboards.inline_kb import order_client_kb
+from app.services.encryption import EncryptionService
+from app.services.order_service import OrderService
+from app.services.rate_service import RateService
+from app.services.settings_service import SettingsService
+from app.services.user_service import UserService
+from app.utils.formatting import format_order_message
+
+logger = logging.getLogger(__name__)
+
+router = Router()
+
+
+@router.message(F.text == "💰 Купить USDT", StateFilter(None))
+async def start_buy(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    """Initiate buy USDT FSM — check if buy is enabled."""
+    encryption = EncryptionService(app_settings.ENCRYPTION_KEY)
+    settings_service = SettingsService(session, encryption)
+
+    if not await settings_service.is_buy_enabled():
+        await message.answer("Покупка USDT временно приостановлена.")
+        return
+
+    await state.set_state(OrderBuyStates.waiting_amount)
+    await message.answer("Введите сумму в USDT, которую хотите купить.")
+
+
+@router.message(OrderBuyStates.waiting_amount, F.text.regexp(r"^\d+(\.\d+)?$"))
+async def process_buy_amount(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    """Process entered buy amount."""
+    try:
+        amount = Decimal(message.text.strip())
+    except Exception:
+        await message.answer("Введите корректную сумму (от 0.01 до 100000 USDT).")
+        return
+
+    if amount <= 0 or amount > 100000:
+        await message.answer("Введите корректную сумму (от 0.01 до 100000 USDT).")
+        return
+
+    rate_service = RateService(session)
+    current_rate = await rate_service.get_current_rate(OrderTypeEnum.buy)
+    if current_rate is None:
+        await message.answer("Курс покупки не установлен. Обратитесь позже.")
+        await state.clear()
+        return
+
+    encryption = EncryptionService(app_settings.ENCRYPTION_KEY)
+    settings_service = SettingsService(session, encryption)
+    payment_link = await settings_service.get_payment_link(OrderTypeEnum.buy)
+    if not payment_link:
+        await message.answer("Реквизиты не настроены. Обратитесь позже.")
+        await state.clear()
+        return
+
+    user_service = UserService(session)
+    user = await user_service.get_or_create(
+        telegram_id=message.from_user.id,
+        username=message.from_user.username,
+        full_name=message.from_user.full_name,
+    )
+
+    order_service = OrderService(session, encryption)
+    order = await order_service.create_order(
+        user_id=user.id,
+        order_type=OrderTypeEnum.buy,
+        amount_usdt=amount,
+        rate=current_rate,
+        payment_link=payment_link,
+        message_id=0,
+        chat_id=message.chat.id,
+    )
+
+    text = format_order_message(order, user, payment_link)
+    kb = order_client_kb(order.id)
+    sent_message = await message.answer(text, reply_markup=kb)
+
+    await order_service.update_order_message(order.id, sent_message.message_id, message.chat.id)
+
+    from app.services.notification_service import NotificationService
+    notif_service = NotificationService(session)
+    bot = message.bot
+    await notif_service.notify_new_order(bot, order, user)
+
+    await state.clear()
+    logger.info(f"Buy order #{order.id} created by user {user.telegram_id}, amount={amount}")
+
+
+@router.message(OrderBuyStates.waiting_amount)
+async def invalid_buy_amount(message: Message) -> None:
+    """Handle invalid amount input."""
+    await message.answer("Введите корректную сумму (положительное число, до 100000 USDT).")
