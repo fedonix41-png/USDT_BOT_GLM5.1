@@ -47,8 +47,9 @@ async def process_assign_operator(
         )
         return
 
-    if user is None:
-        await message.answer("Ошибка.")
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={message.from_user.id}, command=assign_operator, required_role=admin+")
+        await message.answer("У вас нет прав для этого действия.")
         await state.clear()
         return
 
@@ -101,6 +102,7 @@ async def process_assign_admin(
 
     user_service = UserService(session)
     if user is None or user.role != RoleEnum.super_admin:
+        logger.warning(f"Unauthorized access attempt: user_id={message.from_user.id}, command=assign_admin, required_role=super_admin")
         await message.answer("У вас нет прав для этого действия.")
         await state.clear()
         return

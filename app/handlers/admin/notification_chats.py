@@ -28,8 +28,12 @@ class NotificationChatStates(StatesGroup):
 
 
 @router.callback_query(F.data == "notif_list")
-async def list_chats(callback: CallbackQuery, session: AsyncSession) -> None:
+async def list_chats(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """List all notification chats."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
     notif_service = NotificationService(session)
     chats = await notif_service.get_all_chats()
 
@@ -45,8 +49,12 @@ async def list_chats(callback: CallbackQuery, session: AsyncSession) -> None:
 
 
 @router.callback_query(F.data == "notif_add")
-async def start_add_chat(callback: CallbackQuery, state: FSMContext) -> None:
+async def start_add_chat(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start adding a notification chat."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
     await state.set_state(NotificationChatStates.waiting_chat_id)
     await callback.message.answer(
         "Перешлите сообщение из нужного чата или введите Chat ID:",
@@ -82,8 +90,9 @@ async def process_add_chat(
         return
 
     user_service = UserService(session)
-    if user is None:
-        await message.answer("Ошибка.")
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={message.from_user.id}, command=add_chat, required_role=admin+")
+        await message.answer("У вас нет прав для этого действия.")
         await state.clear()
         return
 
@@ -110,8 +119,12 @@ async def process_add_chat(
 
 
 @router.callback_query(F.data == "notif_delete")
-async def start_delete_chat(callback: CallbackQuery, session: AsyncSession) -> None:
+async def start_delete_chat(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """Start deleting a notification chat — show list."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
     notif_service = NotificationService(session)
     chats = await notif_service.get_all_chats()
 
@@ -126,8 +139,12 @@ async def start_delete_chat(callback: CallbackQuery, session: AsyncSession) -> N
 
 
 @router.callback_query(F.data.startswith("chat_del:"))
-async def delete_chat(callback: CallbackQuery, session: AsyncSession) -> None:
+async def delete_chat(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """Delete selected notification chat."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
     chat_db_id = int(callback.data.split(":")[1])
     notif_service = NotificationService(session)
 

@@ -12,6 +12,7 @@ from app.services.order_service import OrderService
 from app.services.user_service import UserService
 from app.utils.formatting import format_order_for_operator
 from app.utils.pagination import calculate_pagination
+from app.database.models.user import RoleEnum, User
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +20,11 @@ router = Router()
 
 
 @router.message(F.text == "📋 Заявки")
-async def show_active_orders(message: Message, session: AsyncSession) -> None:
+async def show_active_orders(message: Message, session: AsyncSession, user: User | None) -> None:
     """Show first page of active orders."""
+    if user is None or user.role not in (RoleEnum.operator, RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={message.from_user.id}, command=Заявки, required_role=operator+")
+        return
     order_service = OrderService(session, None)
     user_service = UserService(session)
 
@@ -44,8 +48,13 @@ async def show_active_orders(message: Message, session: AsyncSession) -> None:
 
 
 @router.callback_query(F.data.startswith("page:orders:"))
-async def paginate_orders(callback: CallbackQuery, session: AsyncSession) -> None:
+async def paginate_orders(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """Handle pagination for active orders."""
+    if user is None or user.role not in (RoleEnum.operator, RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=operator+")
+        await callback.answer("У вас недостаточно прав.", show_alert=True)
+        return
+
     offset = int(callback.data.split(":")[2])
     order_service = OrderService(session, None)
     user_service = UserService(session)

@@ -28,8 +28,12 @@ router = Router()
 
 
 @router.callback_query(ChangeLinksStates.choosing_type, F.data.startswith("link_type:"))
-async def choose_link_type(callback: CallbackQuery, state: FSMContext) -> None:
+async def choose_link_type(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Handle link type selection."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
     link_type = callback.data.split(":")[1]
     order_type = OrderTypeEnum.buy if link_type == "buy" else OrderTypeEnum.sell
     type_str = "покупки" if link_type == "buy" else "продажи"
@@ -52,8 +56,9 @@ async def process_new_link(
     order_type = data["link_type"]
     type_str = "покупки" if order_type == OrderTypeEnum.buy else "продажи"
 
-    if user is None:
-        await message.answer("Ошибка.")
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={message.from_user.id}, command=change_link, required_role=admin+")
+        await message.answer("У вас нет прав для этого действия.")
         await state.clear()
         return
 

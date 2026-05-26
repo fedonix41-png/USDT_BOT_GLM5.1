@@ -45,8 +45,9 @@ async def process_new_buy_rate(
         )
         return
 
-    if user is None:
-        await message.answer("Ошибка.")
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={message.from_user.id}, command=change_buy_rate, required_role=admin+")
+        await message.answer("У вас нет прав для этого действия.")
         await state.clear()
         return
 
@@ -88,8 +89,9 @@ async def process_new_sell_rate(
         )
         return
 
-    if user is None:
-        await message.answer("Ошибка.")
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={message.from_user.id}, command=change_sell_rate, required_role=admin+")
+        await message.answer("У вас нет прав для этого действия.")
         await state.clear()
         return
 

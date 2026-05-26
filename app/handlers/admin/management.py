@@ -62,6 +62,7 @@ async def close_management_panel(callback: CallbackQuery) -> None:
 async def toggle_buy(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """Toggle buy_enabled flag."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
         await callback.answer("У вас нет прав.", show_alert=True)
         return
 
@@ -80,6 +81,7 @@ async def toggle_buy(callback: CallbackQuery, session: AsyncSession, user: User 
 async def toggle_sell(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """Toggle sell_enabled flag."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
         await callback.answer("У вас нет прав.", show_alert=True)
         return
 
@@ -98,6 +100,7 @@ async def toggle_sell(callback: CallbackQuery, session: AsyncSession, user: User
 async def toggle_bot(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """Toggle bot_enabled flag."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
         await callback.answer("У вас нет прав.", show_alert=True)
         return
 
@@ -118,8 +121,12 @@ async def toggle_bot(callback: CallbackQuery, session: AsyncSession, user: User 
 # --- FSM-triggering callbacks ---
 
 @router.callback_query(F.data == "mgmt:rate_buy")
-async def start_change_buy_rate(callback: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+async def start_change_buy_rate(callback: CallbackQuery, state: FSMContext, session: AsyncSession, user: User | None) -> None:
     """Start change buy rate FSM from management panel."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
     rate_service = RateService(session)
     current_rate = await rate_service.get_current_rate("buy")
     current_str = str(current_rate) if current_rate else "Не установлен"
@@ -134,8 +141,12 @@ async def start_change_buy_rate(callback: CallbackQuery, state: FSMContext, sess
 
 
 @router.callback_query(F.data == "mgmt:rate_sell")
-async def start_change_sell_rate(callback: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+async def start_change_sell_rate(callback: CallbackQuery, state: FSMContext, session: AsyncSession, user: User | None) -> None:
     """Start change sell rate FSM from management panel."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
     rate_service = RateService(session)
     current_rate = await rate_service.get_current_rate("sell")
     current_str = str(current_rate) if current_rate else "Не установлен"
@@ -150,8 +161,12 @@ async def start_change_sell_rate(callback: CallbackQuery, state: FSMContext, ses
 
 
 @router.callback_query(F.data == "mgmt:links")
-async def start_change_links(callback: CallbackQuery, state: FSMContext) -> None:
+async def start_change_links(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start change links FSM from management panel."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
     from app.keyboards.inline_kb import link_type_kb
 
     await state.set_state(ChangeLinksStates.choosing_type)
@@ -165,8 +180,12 @@ async def start_change_links(callback: CallbackQuery, state: FSMContext) -> None
 
 
 @router.callback_query(F.data == "mgmt:chats")
-async def start_notification_chats(callback: CallbackQuery) -> None:
+async def start_notification_chats(callback: CallbackQuery, user: User | None) -> None:
     """Show notification chats menu from management panel."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
     from app.keyboards.inline_kb import notification_chats_menu_kb
 
     kb = notification_chats_menu_kb()
@@ -175,8 +194,12 @@ async def start_notification_chats(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "mgmt:assign_operator")
-async def start_assign_operator(callback: CallbackQuery, state: FSMContext) -> None:
+async def start_assign_operator(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start assign operator FSM from management panel."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
     await state.set_state(AssignOperatorStates.waiting_target_user)
     await callback.message.edit_text("⚙️ Панель закрыта.")
     await callback.message.answer(
@@ -190,6 +213,7 @@ async def start_assign_operator(callback: CallbackQuery, state: FSMContext) -> N
 async def start_assign_admin(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start assign admin FSM from management panel (super_admin only)."""
     if user is None or user.role != RoleEnum.super_admin:
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=super_admin")
         await callback.answer("У вас нет прав для этого действия.", show_alert=True)
         return
 

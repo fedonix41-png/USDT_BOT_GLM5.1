@@ -211,33 +211,20 @@ Admin/SuperAdmin → [⚙️ Управление] → [👤 Оператор]
 - Проверка через `RoleGuardMiddleware`: `min_role=RoleEnum.super_admin`
 - При попытке Admin'а назначить другого админа → «У вас нет прав для этого действия»
 
-### Проверка прав в Middleware
+### Проверка прав в Handlers и Middleware
 
-**RoleGuardMiddleware** работает как фильтр на роутерах:
+В дополнение к базовой защите через `RoleGuardMiddleware`, в проекте внедрены **жёсткие проверки ролей на уровне каждого обработчика** (message и callback_query). Это устраняет уязвимости IDOR (Broken Access Control) и предотвращает вызовы административных действий через подделку Callback Data или прямую манипуляцию FSM-стейтами.
 
+Пример проверки в хэндлере:
 ```python
-# Роутер оператора — доступен operator и выше
-operator_router.message.filter(RoleFilter(min_role=RoleEnum.operator))
-
-# Роутер админа — доступен admin и выше
-admin_router.message.filter(RoleFilter(min_role=RoleEnum.admin))
-
-# Кнопка «Сделать Админом» — только super_admin
-admin_router.message.filter(RoleFilter(min_role=RoleEnum.super_admin))
+@router.callback_query(F.data == "mgmt:rate_buy")
+async def start_change_buy_rate(callback: CallbackQuery, state: FSMContext, session: AsyncSession, user: User | None) -> None:
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
 ```
 
-**RoleFilter** сравнивает числовые уровни:
-
-```python
-ROLE_LEVELS = {
-    RoleEnum.client: 1,
-    RoleEnum.operator: 2,
-    RoleEnum.admin: 3,
-    RoleEnum.super_admin: 4,
-}
-```
-
-Пользователь проходит фильтр, если `ROLE_LEVELS[user.role] >= ROLE_LEVELS[min_role]`.
+**RoleFilter** и **RoleGuardMiddleware** продолжают использоваться как дополнительный слой защиты, проверяя числовые уровни ролей (1 до 4).
 
 ---
 

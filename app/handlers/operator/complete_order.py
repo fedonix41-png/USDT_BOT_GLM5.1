@@ -12,6 +12,7 @@ from app.services.encryption import EncryptionService
 from app.services.notification_service import NotificationService
 from app.services.order_service import OrderService
 from app.services.user_service import UserService
+from app.database.models.user import RoleEnum, User
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +20,14 @@ router = Router()
 
 
 @router.callback_query(F.data.startswith("order_complete:"))
-async def complete_order_callback(callback: CallbackQuery, session: AsyncSession) -> None:
+async def complete_order_callback(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """Handle complete order inline button."""
-    order_id = int(callback.data.split(":")[1])
-
-    user_service = UserService(session)
-    operator = await user_service.get_by_telegram_id(callback.from_user.id)
-
-    if operator is None:
-        await callback.answer("Ошибка: пользователь не найден.", show_alert=True)
+    if user is None or user.role not in (RoleEnum.operator, RoleEnum.admin, RoleEnum.super_admin):
+        await callback.answer("У вас недостаточно прав.", show_alert=True)
         return
+
+    order_id = int(callback.data.split(":")[1])
+    operator = user
 
     encryption = EncryptionService(app_settings.ENCRYPTION_KEY)
     order_service = OrderService(session, encryption)
@@ -72,8 +71,13 @@ async def complete_order_callback(callback: CallbackQuery, session: AsyncSession
 
 
 @router.callback_query(F.data.startswith("order_admin_cancel:"))
-async def admin_cancel_order_callback(callback: CallbackQuery, session: AsyncSession) -> None:
+async def admin_cancel_order_callback(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """Handle admin/operator cancel order inline button."""
+    if user is None or user.role not in (RoleEnum.operator, RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=operator+")
+        await callback.answer("У вас недостаточно прав.", show_alert=True)
+        return
+
     order_id = int(callback.data.split(":")[1])
 
     order_service = OrderService(session, None)
