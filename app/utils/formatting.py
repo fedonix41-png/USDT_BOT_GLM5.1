@@ -29,7 +29,12 @@ def format_order_message(order: Order, user: User | None = None, payment_link: s
 def format_order_for_operator(order: Order, user: User | None = None) -> str:
     """Format an order for the operator's active orders list."""
     type_emoji = "🟢 Покупка" if order.order_type == OrderTypeEnum.buy else "🔴 Продажа"
-    username = f"@{user.username}" if user and user.username else "N/A"
+    if user and user.username:
+        username = f"@{user.username}"
+    elif user and user.phone:
+        username = f"📱 {user.phone}"
+    else:
+        username = "N/A"
     tg_id = user.telegram_id if user else "N/A"
 
     return (

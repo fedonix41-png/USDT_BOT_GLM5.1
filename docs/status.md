@@ -27,7 +27,7 @@
 `pyproject.toml`, `docker-compose.yml`, `Dockerfile`, `alembic.ini`, `.gitignore`, `.env.example`
 
 ### migrations/
-`env.py`, `script.py.mako`, `versions/001_initial.py`, `versions/002_add_is_active_notification.py`, `versions/003_add_api_tokens.py`
+`env.py`, `script.py.mako`, `versions/001_initial.py`, `versions/002_add_is_active_notification.py`, `versions/003_add_api_tokens.py`, `versions/004_add_phone_to_users.py`, `versions/004_add_phone_to_users.py`
 
 ### app/
 `config.py`, `bot.py`, `main.py`, `health.py`

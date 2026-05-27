@@ -1,4 +1,4 @@
-"""User service — registration, role management."""
+"""User service — registration, role management, blocking."""
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,6 +44,29 @@ class UserService:
                 details={"target_user_id": user_id, "new_role": role.value},
             )
         return user
+
+    async def block_user(self, user_id: int, blocked_by_user_id: int) -> User | None:
+        user = await self.user_repo.set_blocked(user_id, True)
+        if user is not None:
+            await self.audit_repo.log(
+                user_id=blocked_by_user_id,
+                action="ban_user",
+                details={"target_user_id": user_id},
+            )
+        return user
+
+    async def unblock_user(self, user_id: int, unblocked_by_user_id: int) -> User | None:
+        user = await self.user_repo.set_blocked(user_id, False)
+        if user is not None:
+            await self.audit_repo.log(
+                user_id=unblocked_by_user_id,
+                action="unban_user",
+                details={"target_user_id": user_id},
+            )
+        return user
+
+    async def set_phone(self, user_id: int, phone: str) -> User | None:
+        return await self.user_repo.set_phone(user_id, phone)
 
     async def is_super_admin(self, telegram_id: int) -> bool:
         user = await self.user_repo.get_by_telegram_id(telegram_id)

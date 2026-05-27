@@ -28,3 +28,9 @@ class UserRepository(BaseRepository[User]):
 
     async def set_role(self, user_id: int, role: RoleEnum) -> User | None:
         return await self.update(user_id, role=role)
+
+    async def set_blocked(self, user_id: int, is_blocked: bool) -> User | None:
+        return await self.update(user_id, is_blocked=is_blocked)
+
+    async def set_phone(self, user_id: int, phone: str) -> User | None:
+        return await self.update(user_id, phone=phone)

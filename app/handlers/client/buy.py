@@ -6,7 +6,7 @@ from decimal import Decimal
 from aiogram import F, Router
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings as app_settings
@@ -46,26 +46,13 @@ async def start_buy(message: Message, state: FSMContext, session: AsyncSession) 
     )
 
 
-@router.message(OrderBuyStates.waiting_amount, F.text.regexp(r"^\d+(\.\d+)?$"))
-async def process_buy_amount(message: Message, state: FSMContext, session: AsyncSession) -> None:
-    """Process entered buy amount."""
-    try:
-        amount = Decimal(message.text.strip())
-    except Exception:
-        await message.answer("Введите корректную сумму (от 0.01 до 100000 USDT).")
-        return
-
-    if amount <= 0 or amount > 100000:
-        await message.answer("Введите корректную сумму (от 0.01 до 100000 USDT).")
-        return
-
+async def _create_buy_order(message: Message, state: FSMContext, session: AsyncSession, amount: Decimal, user) -> None:
+    """Shared logic to create a buy order after amount and phone are collected."""
     rate_service = RateService(session)
     current_rate = await rate_service.get_current_rate(OrderTypeEnum.buy)
     if current_rate is None:
         await message.answer("Курс покупки не установлен. Обратитесь позже.")
         flags = await get_settings_flags(session)
-        user_service = UserService(session)
-        user = await user_service.get_by_telegram_id(message.from_user.id)
         kb = get_main_keyboard(
             role=user.role if user else RoleEnum.client,
             buy_enabled=flags["buy_enabled"],
@@ -83,8 +70,6 @@ async def process_buy_amount(message: Message, state: FSMContext, session: Async
     if not payment_link:
         await message.answer("Реквизиты не настроены. Обратитесь позже.")
         flags = await get_settings_flags(session)
-        user_service = UserService(session)
-        user = await user_service.get_by_telegram_id(message.from_user.id)
         kb = get_main_keyboard(
             role=user.role if user else RoleEnum.client,
             buy_enabled=flags["buy_enabled"],
@@ -95,13 +80,6 @@ async def process_buy_amount(message: Message, state: FSMContext, session: Async
         await message.answer("Выберите действие:", reply_markup=kb)
         await state.clear()
         return
-
-    user_service = UserService(session)
-    user = await user_service.get_or_create(
-        telegram_id=message.from_user.id,
-        username=message.from_user.username,
-        full_name=message.from_user.full_name,
-    )
 
     order_service = OrderService(session, encryption)
     order = await order_service.create_order(
@@ -125,7 +103,6 @@ async def process_buy_amount(message: Message, state: FSMContext, session: Async
     bot = message.bot
     await notif_service.notify_new_order(bot, order, user)
 
-    # Restore client main menu
     flags = await get_settings_flags(session)
     main_kb = get_main_keyboard(
         role=user.role,
@@ -138,6 +115,74 @@ async def process_buy_amount(message: Message, state: FSMContext, session: Async
 
     await state.clear()
     logger.info(f"Buy order #{order.id} created by user {user.telegram_id}, amount={amount}")
+
+
+@router.message(OrderBuyStates.waiting_amount, F.text.regexp(r"^\d+(\.\d+)?$"))
+async def process_buy_amount(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    """Process entered buy amount."""
+    try:
+        amount = Decimal(message.text.strip())
+    except Exception:
+        await message.answer("Введите корректную сумму (от 0.01 до 100000 USDT).")
+        return
+
+    if amount <= 0 or amount > 100000:
+        await message.answer("Введите корректную сумму (от 0.01 до 100000 USDT).")
+        return
+
+    user_service = UserService(session)
+    user = await user_service.get_or_create(
+        telegram_id=message.from_user.id,
+        username=message.from_user.username,
+        full_name=message.from_user.full_name,
+    )
+
+    if not user.username and not user.phone:
+        await state.update_data(amount=str(amount))
+        await state.set_state(OrderBuyStates.waiting_phone)
+        phone_kb = ReplyKeyboardMarkup(
+            keyboard=[[KeyboardButton(text="📱 Поделиться номером", request_contact=True)]],
+            resize_keyboard=True,
+            one_time_keyboard=True,
+        )
+        await message.answer(
+            "Для оформления заявки поделитесь номером телефона:",
+            reply_markup=phone_kb,
+        )
+        return
+
+    await _create_buy_order(message, state, session, amount, user)
+
+
+@router.message(OrderBuyStates.waiting_phone, F.contact)
+async def process_buy_phone(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    """Process phone contact for buy order."""
+    user_service = UserService(session)
+    user = await user_service.get_by_telegram_id(message.from_user.id)
+    if user is None:
+        await message.answer("Ошибка: пользователь не найден. Начните заново (/start).")
+        await state.clear()
+        return
+
+    if message.contact.phone_number:
+        await user_service.set_phone(user.id, message.contact.phone_number)
+        user.phone = message.contact.phone_number
+
+    data = await state.get_data()
+    amount = Decimal(data["amount"])
+    await _create_buy_order(message, state, session, amount, user)
+
+
+@router.message(OrderBuyStates.waiting_phone)
+async def invalid_buy_phone(message: Message, state: FSMContext) -> None:
+    """Handle invalid input during phone request."""
+    should_continue, _ = await check_fsm_attempts(
+        state,
+        message,
+        "Пожалуйста, поделитесь номером телефона через кнопку ниже.",
+    )
+    if not should_continue:
+        return
 
 
 @router.message(OrderBuyStates.waiting_amount)

@@ -34,10 +34,16 @@ class NotificationService:
 
     async def notify_new_order(self, bot: Bot, order: Order, user: User) -> None:
         order_type_str = "Покупка" if order.order_type.value == "buy" else "Продажа"
+        if user.username:
+            client_info = f"@{user.username}"
+        elif user.phone:
+            client_info = f"📱 {user.phone}"
+        else:
+            client_info = f"ID: {user.telegram_id}"
         text = (
             f"🆕 Новая заявка #{order.id}\n"
             f"Тип: {order_type_str}\n"
-            f"Клиент: @{user.username or 'N/A'} (ID: {user.telegram_id})\n"
+            f"Клиент: {client_info} (ID: {user.telegram_id})\n"
             f"Сумма: {order.amount_usdt} USDT\n"
             f"К оплате: {order.total_fiat} RUB"
         )
@@ -59,6 +65,13 @@ class NotificationService:
 
     async def notify_role_assigned(self, bot: Bot, user: User, role: str) -> None:
         text = f"👤 Пользователю @{user.username or 'N/A'} (ID: {user.telegram_id}) назначена роль {role}"
+        await self.send_to_all_chats(bot, text)
+
+    async def notify_user_banned(self, bot: Bot, user: User, banned: bool) -> None:
+        action = "заблокирован" if banned else "разблокирован"
+        emoji = "🚫" if banned else "✅"
+        client_info = f"@{user.username}" if user.username else f"ID: {user.telegram_id}"
+        text = f"{emoji} Пользователь {client_info} {action}"
         await self.send_to_all_chats(bot, text)
 
     async def add_chat(self, chat_id: int, added_by: int) -> NotificationChat:

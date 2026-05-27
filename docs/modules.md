@@ -41,7 +41,7 @@ app/
 │
 ├── repositories/       # Слой доступа к данным
 │   ├── base.py         # Generic CRUD (get_by_id, get_all, create, update, delete)
-│   ├── user_repo.py    # get_by_telegram_id, exists_by_telegram_id
+│   ├── user_repo.py    # get_by_telegram_id, exists_by_telegram_id, set_blocked, set_phone, set_blocked, set_phone
 │   ├── order_repo.py   # get_active_orders, get_statistics, get_broken_link_orders
 │   ├── rate_repo.py    # get_current_rate, get_rate_history
 │   ├── settings_repo.py # get/set по ключу
@@ -51,7 +51,7 @@ app/
 │
 ├── services/           # Бизнес-логика
 │   ├── encryption.py   # AES-256-CBC шифрование (encrypt/decrypt)
-│   ├── user_service.py # get_or_create, set_role, is_super_admin
+│   ├── user_service.py # get_or_create, set_role, block_user, unblock_user, set_phone, is_super_admin
 │   ├── order_service.py # create_order, cancel_order, complete_order, get_statistics
 │   ├── rate_service.py # get_current_rate, set_rate
 │   ├── settings_service.py # is_bot_enabled, get_payment_link, set_payment_link
@@ -63,7 +63,7 @@ app/
 │   ├── client/         # buy.py, sell.py, rates.py, cancel_order.py, support.py
 │   ├── operator/       # active_orders.py, complete_order.py, statistics.py
 │   ├── admin/          # change_rate.py, change_links.py, toggle_flags.py,
-│   │                   # notification_chats.py, assign_roles.py
+│   │                   # notification_chats.py, assign_roles.py, ban_user.py, management.py, ban_user.py, management.py
 │   └── common/         # broken_link.py, cancel.py (глобальная отмена FSM), calendar.py
 │
 ├── middlewares/
@@ -148,12 +148,14 @@ Request → ThrottlingMiddleware (outermost)
 
 | FSM | States | Назначение |
 |-----|--------|------------|
-| OrderBuyStates | waiting_amount, confirm_order | Покупка USDT |
-| OrderSellStates | waiting_amount, confirm_order | Продажа USDT |
+| OrderBuyStates | waiting_amount, waiting_phone, confirm_order | Покупка USDT |
+| OrderSellStates | waiting_amount, waiting_phone, confirm_order | Продажа USDT |
 | StatisticsStates | waiting_start_date, waiting_end_date | Статистика за период |
 | ChangeRateStates | waiting_new_rate | Смена курса |
 | ChangeLinksStates | choosing_type, waiting_new_link | Смена реквизитов |
 | AssignRoleStates | waiting_target_user | Назначение роли |
+| BanUserStates | waiting_target_user | Блокировка пользователя |
+| UnbanUserStates | waiting_target_user | Разблокировка пользователя |
 | SupportStates | waiting_message | Обращение в поддержку |
 
 **Навигация:** Все FSM поддерживают кнопку «❌ Отмена» — при выходе восстанавливается основное меню по роли.

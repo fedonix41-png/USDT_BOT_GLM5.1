@@ -1,4 +1,4 @@
-"""FSM states for role assignment."""
+"""FSM states for role assignment and user management."""
 
 from aiogram.fsm.state import State, StatesGroup
 
@@ -8,4 +8,12 @@ class AssignOperatorStates(StatesGroup):
 
 
 class AssignAdminStates(StatesGroup):
+    waiting_target_user = State()
+
+
+class BanUserStates(StatesGroup):
+    waiting_target_user = State()
+
+
+class UnbanUserStates(StatesGroup):
     waiting_target_user = State()

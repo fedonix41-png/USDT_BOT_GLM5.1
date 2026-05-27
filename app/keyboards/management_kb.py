@@ -34,6 +34,11 @@ def management_keyboard(
     if is_super_admin:
         kb.append([InlineKeyboardButton(text="👑 Админ", callback_data="mgmt:assign_admin")])
 
+    kb.append([
+        InlineKeyboardButton(text="🚫 Забанить", callback_data="mgmt:ban_user"),
+        InlineKeyboardButton(text="✅ Разбанить", callback_data="mgmt:unban_user"),
+    ])
+
     kb.append([InlineKeyboardButton(text="🔙 Закрыть", callback_data="mgmt:close")])
 
     return InlineKeyboardMarkup(inline_keyboard=kb)

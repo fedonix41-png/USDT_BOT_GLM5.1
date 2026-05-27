@@ -7,7 +7,15 @@ from aiogram.exceptions import TelegramAPIError
 from aiogram.types import ErrorEvent
 
 from app.config import settings
-from app.handlers.admin import assign_roles, change_links, change_rate, management, notification_chats, toggle_flags
+from app.handlers.admin import (
+    assign_roles,
+    ban_user,
+    change_links,
+    change_rate,
+    management,
+    notification_chats,
+    toggle_flags,
+)
 from app.handlers.client import buy, cancel_order, rates, sell, support
 from app.handlers.common import broken_link, calendar, cancel
 from app.handlers.operator import active_orders, complete_order, statistics
@@ -81,6 +89,7 @@ def setup_dispatcher() -> Dispatcher:
     dp.include_router(toggle_flags.router)
     dp.include_router(notification_chats.router)
     dp.include_router(assign_roles.router)
+    dp.include_router(ban_user.router)
     dp.include_router(management.router)
 
     @dp.errors()

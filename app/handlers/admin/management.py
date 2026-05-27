@@ -16,7 +16,7 @@ from app.config import settings as app_settings
 from app.database.models.user import RoleEnum, User
 from app.fsm.links_states import ChangeLinksStates
 from app.fsm.rate_states import ChangeBuyRateStates, ChangeSellRateStates
-from app.fsm.role_states import AssignAdminStates, AssignOperatorStates
+from app.fsm.role_states import AssignAdminStates, AssignOperatorStates, BanUserStates, UnbanUserStates
 from app.keyboards.cancel_kb import cancel_keyboard
 from app.keyboards.management_kb import management_keyboard
 from app.services.encryption import EncryptionService
@@ -221,6 +221,38 @@ async def start_assign_admin(callback: CallbackQuery, state: FSMContext, user: U
     await callback.message.edit_text("⚙️ Панель закрыта.")
     await callback.message.answer(
         "Введите Telegram ID пользователя или перешлите его контакт:",
+        reply_markup=cancel_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "mgmt:ban_user")
+async def start_ban_user(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
+    """Start ban user FSM from management panel."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
+    await state.set_state(BanUserStates.waiting_target_user)
+    await callback.message.edit_text("⚙️ Панель закрыта.")
+    await callback.message.answer(
+        "Введите Telegram ID пользователя для блокировки:",
+        reply_markup=cancel_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "mgmt:unban_user")
+async def start_unban_user(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
+    """Start unban user FSM from management panel."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
+    await state.set_state(UnbanUserStates.waiting_target_user)
+    await callback.message.edit_text("⚙️ Панель закрыта.")
+    await callback.message.answer(
+        "Введите Telegram ID пользователя для разблокировки:",
         reply_markup=cancel_keyboard(),
     )
     await callback.answer()
