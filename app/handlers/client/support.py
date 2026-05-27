@@ -12,7 +12,7 @@ from app.database.models.user import RoleEnum, User
 from app.fsm.support_states import SupportStates
 from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
 from app.services.notification_service import NotificationService
-from app.utils.helpers import get_settings_flags
+from app.utils.helpers import get_settings_flags, reset_fsm_attempts
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,7 @@ router = Router()
 @router.message(F.text == "📞 Поддержка", StateFilter(None))
 async def start_support(message: Message, state: FSMContext) -> None:
     """Initiate support FSM."""
+    await reset_fsm_attempts(state)
     await state.set_state(SupportStates.waiting_message)
     await message.answer(
         "Напишите ваш вопрос, и мы ответим в ближайшее время.",

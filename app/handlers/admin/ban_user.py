@@ -15,7 +15,7 @@ from app.fsm.role_states import BanUserStates, UnbanUserStates
 from app.keyboards.cancel_kb import get_main_keyboard
 from app.services.notification_service import NotificationService
 from app.services.user_service import UserService
-from app.utils.helpers import check_fsm_attempts, get_settings_flags
+from app.utils.helpers import check_fsm_attempts, get_settings_flags, reset_fsm_attempts
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,11 @@ async def process_ban_user(
         await check_fsm_attempts(
             state, message, "Введите корректный Telegram ID (число)."
         )
+        return
+
+    if target_telegram_id == message.from_user.id:
+        await message.answer("Невозможно заблокировать самого себя.")
+        await state.clear()
         return
 
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):

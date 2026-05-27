@@ -15,6 +15,7 @@ from app.fsm.statistics_states import StatisticsStates
 from app.keyboards.calendar_kb import calendar_kb
 from app.keyboards.cancel_kb import cancel_keyboard
 from app.database.models.user import RoleEnum, User
+from app.utils.helpers import reset_fsm_attempts
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ async def start_statistics(message: Message, state: FSMContext, user: User | Non
     if user is None or user.role not in (RoleEnum.operator, RoleEnum.admin, RoleEnum.super_admin):
         logger.warning(f"Unauthorized access attempt: user_id={message.from_user.id}, command=Статистика, required_role=operator+")
         return
+    await reset_fsm_attempts(state)
     await state.set_state(StatisticsStates.waiting_start_date)
 
     kb = calendar_kb(prefix=_CALENDAR_PREFIX)

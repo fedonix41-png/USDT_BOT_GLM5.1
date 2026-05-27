@@ -22,7 +22,7 @@ from app.keyboards.management_kb import management_keyboard
 from app.services.encryption import EncryptionService
 from app.services.rate_service import RateService
 from app.services.settings_service import SettingsService
-from app.utils.helpers import get_settings_flags
+from app.utils.helpers import get_settings_flags, reset_fsm_attempts
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +131,7 @@ async def start_change_buy_rate(callback: CallbackQuery, state: FSMContext, sess
     current_rate = await rate_service.get_current_rate("buy")
     current_str = str(current_rate) if current_rate else "Не установлен"
 
+    await reset_fsm_attempts(state)
     await state.set_state(ChangeBuyRateStates.waiting_new_rate)
     await callback.message.edit_text("⚙️ Панель закрыта.")
     await callback.message.answer(
@@ -148,10 +149,11 @@ async def start_change_sell_rate(callback: CallbackQuery, state: FSMContext, ses
         await callback.answer("У вас нет прав.", show_alert=True)
         return
     rate_service = RateService(session)
-    current_rate = await rate_service.get_current_rate("sell")
+    current_rate = await rate_service.get_current_rate("buy")
     current_str = str(current_rate) if current_rate else "Не установлен"
 
-    await state.set_state(ChangeSellRateStates.waiting_new_rate)
+    await reset_fsm_attempts(state)
+    await state.set_state(ChangeBuyRateStates.waiting_new_rate)
     await callback.message.edit_text("⚙️ Панель закрыта.")
     await callback.message.answer(
         f"Текущий курс продажи: {current_str} RUB/USDT\nВведите новый курс:",
@@ -169,6 +171,7 @@ async def start_change_links(callback: CallbackQuery, state: FSMContext, user: U
         return
     from app.keyboards.inline_kb import link_type_kb
 
+    await reset_fsm_attempts(state)
     await state.set_state(ChangeLinksStates.choosing_type)
     await callback.message.edit_text("⚙️ Панель закрыта.")
     await callback.message.answer(
@@ -200,6 +203,7 @@ async def start_assign_operator(callback: CallbackQuery, state: FSMContext, user
         logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
         await callback.answer("У вас нет прав.", show_alert=True)
         return
+    await reset_fsm_attempts(state)
     await state.set_state(AssignOperatorStates.waiting_target_user)
     await callback.message.edit_text("⚙️ Панель закрыта.")
     await callback.message.answer(
@@ -217,6 +221,7 @@ async def start_assign_admin(callback: CallbackQuery, state: FSMContext, user: U
         await callback.answer("У вас нет прав для этого действия.", show_alert=True)
         return
 
+    await reset_fsm_attempts(state)
     await state.set_state(AssignAdminStates.waiting_target_user)
     await callback.message.edit_text("⚙️ Панель закрыта.")
     await callback.message.answer(
@@ -233,6 +238,7 @@ async def start_ban_user(callback: CallbackQuery, state: FSMContext, user: User 
         logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
         await callback.answer("У вас нет прав.", show_alert=True)
         return
+    await reset_fsm_attempts(state)
     await state.set_state(BanUserStates.waiting_target_user)
     await callback.message.edit_text("⚙️ Панель закрыта.")
     await callback.message.answer(
@@ -249,6 +255,7 @@ async def start_unban_user(callback: CallbackQuery, state: FSMContext, user: Use
         logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
         await callback.answer("У вас нет прав.", show_alert=True)
         return
+    await reset_fsm_attempts(state)
     await state.set_state(UnbanUserStates.waiting_target_user)
     await callback.message.edit_text("⚙️ Панель закрыта.")
     await callback.message.answer(

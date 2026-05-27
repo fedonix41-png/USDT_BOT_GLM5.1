@@ -9,6 +9,15 @@
         "--repository",
         "/home/ozzy/Документы/USDT_BOT_GLM5.1/"
       ]
+    },
+    "postgres": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://usdt_bot:secret@localhost:5432/usdt_bot"
+      ]
     }
   }
 }

@@ -16,7 +16,7 @@ from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
 from app.keyboards.inline_kb import chat_list_kb
 from app.services.notification_service import NotificationService
 from app.services.user_service import UserService
-from app.utils.helpers import get_settings_flags
+from app.utils.helpers import get_settings_flags, reset_fsm_attempts
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,7 @@ async def start_add_chat(callback: CallbackQuery, state: FSMContext, user: User 
         logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
         await callback.answer("У вас нет прав.", show_alert=True)
         return
+    await reset_fsm_attempts(state)
     await state.set_state(NotificationChatStates.waiting_chat_id)
     await callback.message.answer(
         "Перешлите сообщение из нужного чата или введите Chat ID:",

@@ -20,7 +20,7 @@ from app.services.order_service import OrderService
 from app.services.settings_service import SettingsService
 from app.services.user_service import UserService
 from app.utils.formatting import format_order_message
-from app.utils.helpers import get_settings_flags
+from app.utils.helpers import get_settings_flags, reset_fsm_attempts
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,7 @@ async def choose_link_type(callback: CallbackQuery, state: FSMContext, user: Use
     type_str = "покупки" if link_type == "buy" else "продажи"
 
     await state.update_data(link_type=order_type)
+    await reset_fsm_attempts(state)
     await state.set_state(ChangeLinksStates.waiting_new_link)
     await callback.message.answer(f"Введите новые реквизиты для {type_str}:")
     await callback.answer()

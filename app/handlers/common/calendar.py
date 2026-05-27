@@ -24,7 +24,7 @@ from app.keyboards.calendar_kb import calendar_kb
 from app.keyboards.cancel_kb import get_main_keyboard
 from app.services.order_service import OrderService
 from app.utils.formatting import format_statistics
-from app.utils.helpers import get_settings_flags
+from app.utils.helpers import get_settings_flags, reset_fsm_attempts
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,7 @@ async def pick_calendar_date(
     if current_state == StatisticsStates.waiting_start_date:
         # Save start date and ask for end date
         await state.update_data(start_date=selected_date)
+        await reset_fsm_attempts(state)
         await state.set_state(StatisticsStates.waiting_end_date)
 
         new_kb = calendar_kb(prefix=_CALENDAR_PREFIX)

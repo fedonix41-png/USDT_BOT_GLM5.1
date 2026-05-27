@@ -22,7 +22,7 @@ from app.services.rate_service import RateService
 from app.services.settings_service import SettingsService
 from app.services.user_service import UserService
 from app.utils.formatting import format_order_message
-from app.utils.helpers import check_fsm_attempts, get_settings_flags
+from app.utils.helpers import check_fsm_attempts, get_settings_flags, reset_fsm_attempts
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,7 @@ async def start_buy(message: Message, state: FSMContext, session: AsyncSession) 
         await message.answer("Покупка USDT временно приостановлена.")
         return
 
+    await reset_fsm_attempts(state)
     await state.set_state(OrderBuyStates.waiting_amount)
     await message.answer(
         "Введите сумму в USDT, которую хотите купить.",
@@ -139,9 +140,13 @@ async def process_buy_amount(message: Message, state: FSMContext, session: Async
 
     if not user.username and not user.phone:
         await state.update_data(amount=str(amount))
+        await reset_fsm_attempts(state)
         await state.set_state(OrderBuyStates.waiting_phone)
         phone_kb = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="📱 Поделиться номером", request_contact=True)]],
+            keyboard=[
+                [KeyboardButton(text="📱 Поделиться номером", request_contact=True)],
+                [KeyboardButton(text="❌ Отмена")],
+            ],
             resize_keyboard=True,
             one_time_keyboard=True,
         )
@@ -157,6 +162,14 @@ async def process_buy_amount(message: Message, state: FSMContext, session: Async
 @router.message(OrderBuyStates.waiting_phone, F.contact)
 async def process_buy_phone(message: Message, state: FSMContext, session: AsyncSession) -> None:
     """Process phone contact for buy order."""
+    if message.contact.user_id != message.from_user.id:
+        logger.warning(
+            f"Phone spoofing attempt: user_id={message.from_user.id}, "
+            f"contact_user_id={message.contact.user_id}"
+        )
+        await message.answer("Пожалуйста, поделитесь своим контактом.")
+        return
+
     user_service = UserService(session)
     user = await user_service.get_by_telegram_id(message.from_user.id)
     if user is None:
