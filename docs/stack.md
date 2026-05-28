@@ -24,6 +24,9 @@
 | Docker | — | Контейнеризация. Изоляция компонентов. |
 | Docker Compose | 3.9 | Оркестрация. Зависимости, healthcheck, volumes. |
 | uv | latest | Менеджер пакетов Python (замена pip/poetry). Быстрая установка зависимостей. |
+| React | 18.x | Frontend библиотека для Web3 Telegram Mini App. |
+| Vite | 5.x | Сборщик frontend проекта. Быстрый HMR и билд. |
+| @twa-dev/sdk | 7.x | Telegram Web App SDK для интеграции с клиентом Telegram. |
 
 ---
 

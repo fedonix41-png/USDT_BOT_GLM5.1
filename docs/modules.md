@@ -8,6 +8,12 @@
 ## Дерево файлов
 
 ```
+webapp/                 # Web3 Telegram Mini App (Frontend)
+├── src/                # Исходный код React + Vite
+├── public/             # Статика (иконки, шрифты)
+├── package.json        # Зависимости NPM
+└── vite.config.ts      # Конфигурация сборщика
+
 app/
 ├── config.py           # Pydantic Settings — все переменные окружения
 ├── bot.py              # Dispatcher, роутеры, middleware registration

@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     # Pagination
     ORDERS_PER_PAGE: int = 5
 
+    # Web App
+    WEBAPP_URL: str = "https://example.com"
+
     # ARQ
     ARQ_REDIS_URL: str = "redis://localhost:6379/1"
 
