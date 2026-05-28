@@ -40,7 +40,7 @@ async def list_users(request: web.Request) -> web.Response:
             limit=limit,
         )
 
-        return web.json_response(response.model_dump())
+        return web.json_response(response.model_dump(mode='json'))
 
 
 @router.get("/api/v1/users/{user_id}")
@@ -56,7 +56,7 @@ async def get_user(request: web.Request) -> web.Response:
         if user is None:
             raise NotFoundError("User not found")
 
-        return web.json_response(UserResponse.model_validate(user).model_dump())
+        return web.json_response(UserResponse.model_validate(user).model_dump(mode='json'))
 
 
 @router.patch("/api/v1/users/{user_id}/role")
@@ -91,7 +91,7 @@ async def update_user_role(request: web.Request) -> web.Response:
 
         logger.info(f"User {current_user.telegram_id} set role {role_data.role.value} for user {user.telegram_id}")
 
-        return web.json_response(UserResponse.model_validate(user).model_dump())
+        return web.json_response(UserResponse.model_validate(user).model_dump(mode='json'))
 
 
 @router.post("/api/v1/users/{user_id}/block")
@@ -123,7 +123,7 @@ async def block_user(request: web.Request) -> web.Response:
 
         logger.info(f"User {current_user.telegram_id} blocked user {user.telegram_id}")
 
-        return web.json_response(UserResponse.model_validate(user).model_dump())
+        return web.json_response(UserResponse.model_validate(user).model_dump(mode='json'))
 
 
 @router.delete("/api/v1/users/{user_id}/block")
@@ -152,4 +152,4 @@ async def unblock_user(request: web.Request) -> web.Response:
 
         logger.info(f"User {current_user.telegram_id} unblocked user {user.telegram_id}")
 
-        return web.json_response(UserResponse.model_validate(user).model_dump())
+        return web.json_response(UserResponse.model_validate(user).model_dump(mode='json'))

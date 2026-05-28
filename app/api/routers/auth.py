@@ -81,7 +81,7 @@ async def login(request: web.Request) -> web.Response:
 
         logger.info(f"User {user.telegram_id} logged in from IP {client_ip}")
 
-        return web.json_response(response_data.model_dump())
+        return web.json_response(response_data.model_dump(mode='json'))
 
 
 @router.post("/api/v1/auth/refresh")
@@ -142,7 +142,7 @@ async def refresh(request: web.Request) -> web.Response:
             expires_in=expires_in,
         )
 
-        return web.json_response(response_data.model_dump())
+        return web.json_response(response_data.model_dump(mode='json'))
 
 
 @router.post("/api/v1/auth/logout")

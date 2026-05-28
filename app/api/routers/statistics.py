@@ -63,4 +63,4 @@ async def get_statistics(request: web.Request) -> web.Response:
             sell_orders=stats.get("sell_orders", 0),
         )
 
-        return web.json_response(response.model_dump())
+        return web.json_response(response.model_dump(mode='json'))

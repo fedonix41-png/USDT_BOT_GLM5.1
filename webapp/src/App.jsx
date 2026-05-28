@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import WebApp from '@twa-dev/sdk';
 import { ArrowDownUp, ArrowRightLeft, TrendingUp, Wallet } from 'lucide-react';
+import Calculator from './Calculator';
 import './index.css';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [currentView, setCurrentView] = useState('home');
+  const [rates, setRates] = useState({ buy: 0, sell: 0 });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     WebApp.ready();
-    WebApp.expand(); // Expand to full height
+    WebApp.expand();
     
-    // Attempt to set theme color for the top header
     try {
       WebApp.setHeaderColor('#0B0E14');
       WebApp.setBackgroundColor('#0B0E14');
@@ -23,12 +26,42 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || '';
+        const response = await fetch(`${apiUrl}/api/v1/rates`);
+        if (response.ok) {
+          const data = await response.json();
+          setRates(data);
+        }
+      } catch (err) {
+        setRates({ buy: 98.50, sell: 96.20 });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRates();
+  }, []);
+
   const handleAction = (type) => {
-    // Haptic feedback
     WebApp.HapticFeedback.impactOccurred('medium');
-    // For now, just show an alert until we implement the calculator screen
-    WebApp.showAlert(`Navigating to ${type} calculator...`);
+    setCurrentView(type.toLowerCase());
   };
+
+  const handleBack = () => {
+    WebApp.HapticFeedback.impactOccurred('light');
+    setCurrentView('home');
+  };
+
+  if (currentView === 'buy' || currentView === 'sell') {
+    return (
+      <Calculator 
+        type={currentView === 'buy' ? 'Buy' : 'Sell'} 
+        onBack={handleBack} 
+      />
+    );
+  }
 
   return (
     <div className="animate-in">
@@ -71,13 +104,17 @@ function App() {
             <span className="rate-label">
               <TrendingUp size={18} color="#26A17B" /> Buy
             </span>
-            <span className="rate-value value-buy">98.50 ₽</span>
+            <span className="rate-value value-buy">
+              {isLoading ? '...' : `${rates.buy.toFixed(2)} ₽`}
+            </span>
           </div>
           <div className="rate-row">
             <span className="rate-label">
               <TrendingUp size={18} color="#E15241" style={{ transform: 'scaleY(-1)' }} /> Sell
             </span>
-            <span className="rate-value value-sell">96.20 ₽</span>
+            <span className="rate-value value-sell">
+              {isLoading ? '...' : `${rates.sell.toFixed(2)} ₽`}
+            </span>
           </div>
         </div>
       </section>

@@ -92,6 +92,9 @@ async def auth_middleware(
         if request.path == "/api/v1/health":
             return await handler(request)
 
+        if request.method == "GET" and request.path == "/api/v1/rates":
+            return await handler(request)
+
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             raise UnauthorizedError("Missing or invalid Authorization header")

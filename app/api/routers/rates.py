@@ -30,7 +30,7 @@ async def get_current_rates(request: web.Request) -> web.Response:
             sell=sell_rate,
         )
 
-        return web.json_response(response.model_dump())
+        return web.json_response(response.model_dump(mode='json'))
 
 
 @router.get("/api/v1/rates/history")
@@ -55,7 +55,7 @@ async def get_rate_history(request: web.Request) -> web.Response:
             total=len(history),
         )
 
-        return web.json_response(response.model_dump())
+        return web.json_response(response.model_dump(mode='json'))
 
 
 @router.post("/api/v1/rates")
@@ -80,4 +80,4 @@ async def set_rate(request: web.Request) -> web.Response:
 
         logger.info(f"User {current_user.telegram_id} set {rate_data.rate_type.value} rate to {rate_data.value}")
 
-        return web.json_response(RateResponse.model_validate(rate).model_dump(), status=201)
+        return web.json_response(RateResponse.model_validate(rate).model_dump(mode='json'), status=201)

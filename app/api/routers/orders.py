@@ -50,7 +50,7 @@ async def list_orders(request: web.Request) -> web.Response:
             limit=limit,
         )
 
-        return web.json_response(response.model_dump())
+        return web.json_response(response.model_dump(mode='json'))
 
 
 @router.get("/api/v1/orders/{order_id}")
@@ -66,7 +66,7 @@ async def get_order(request: web.Request) -> web.Response:
         if order is None:
             raise NotFoundError("Order not found")
 
-        return web.json_response(OrderResponse.model_validate(order).model_dump())
+        return web.json_response(OrderResponse.model_validate(order).model_dump(mode='json'))
 
 
 @router.patch("/api/v1/orders/{order_id}/status")
@@ -103,4 +103,4 @@ async def update_order_status(request: web.Request) -> web.Response:
 
         logger.info(f"User {current_user.telegram_id} set status {status_data.status.value} for order {order_id}")
 
-        return web.json_response(OrderResponse.model_validate(order).model_dump())
+        return web.json_response(OrderResponse.model_validate(order).model_dump(mode='json'))

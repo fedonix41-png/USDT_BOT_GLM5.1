@@ -16,7 +16,7 @@ from app.handlers.admin import (
     notification_chats,
     toggle_flags,
 )
-from app.handlers.client import buy, cancel_order, rates, sell, support
+from app.handlers.client import buy, cancel_order, rates, sell, support, webapp
 from app.handlers.common import broken_link, calendar, cancel
 from app.handlers.operator import active_orders, complete_order, statistics
 from app.handlers.start import router as start_router
@@ -69,6 +69,7 @@ def setup_dispatcher() -> Dispatcher:
     dp.include_router(start_router)
 
     # Client handlers
+    dp.include_router(webapp.router)
     dp.include_router(buy.router)
     dp.include_router(sell.router)
     dp.include_router(rates.router)

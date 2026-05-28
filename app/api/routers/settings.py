@@ -31,7 +31,7 @@ async def get_settings(request: web.Request) -> web.Response:
             sell_enabled=await settings_service.is_sell_enabled(),
         )
 
-        return web.json_response(response.model_dump())
+        return web.json_response(response.model_dump(mode='json'))
 
 
 @router.patch("/api/v1/settings")
@@ -74,4 +74,4 @@ async def update_settings(request: web.Request) -> web.Response:
             sell_enabled=await settings_service.is_sell_enabled(),
         )
 
-        return web.json_response(response.model_dump())
+        return web.json_response(response.model_dump(mode='json'))
