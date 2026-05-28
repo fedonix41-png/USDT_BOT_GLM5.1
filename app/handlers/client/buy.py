@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings as app_settings
 from app.database.models.order import OrderTypeEnum
+from app.database.models.rate import RateTypeEnum
 from app.database.models.user import RoleEnum
 from app.fsm.order_states import OrderBuyStates
 from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
@@ -50,7 +51,7 @@ async def start_buy(message: Message, state: FSMContext, session: AsyncSession) 
 async def _create_buy_order(message: Message, state: FSMContext, session: AsyncSession, amount: Decimal, user) -> None:
     """Shared logic to create a buy order after amount and phone are collected."""
     rate_service = RateService(session)
-    current_rate = await rate_service.get_current_rate(OrderTypeEnum.buy)
+    current_rate = await rate_service.get_current_rate(RateTypeEnum.buy)
     if current_rate is None:
         await message.answer("Курс покупки не установлен. Обратитесь позже.")
         flags = await get_settings_flags(session)

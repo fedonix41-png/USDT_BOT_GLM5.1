@@ -13,6 +13,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings as app_settings
+from app.database.models.rate import RateTypeEnum
 from app.database.models.user import RoleEnum, User
 from app.fsm.links_states import ChangeLinksStates
 from app.fsm.rate_states import ChangeBuyRateStates, ChangeSellRateStates
@@ -128,7 +129,7 @@ async def start_change_buy_rate(callback: CallbackQuery, state: FSMContext, sess
         await callback.answer("У вас нет прав.", show_alert=True)
         return
     rate_service = RateService(session)
-    current_rate = await rate_service.get_current_rate("buy")
+    current_rate = await rate_service.get_current_rate(RateTypeEnum.buy)
     current_str = str(current_rate) if current_rate else "Не установлен"
 
     await reset_fsm_attempts(state)
@@ -149,11 +150,11 @@ async def start_change_sell_rate(callback: CallbackQuery, state: FSMContext, ses
         await callback.answer("У вас нет прав.", show_alert=True)
         return
     rate_service = RateService(session)
-    current_rate = await rate_service.get_current_rate("buy")
+    current_rate = await rate_service.get_current_rate(RateTypeEnum.sell)
     current_str = str(current_rate) if current_rate else "Не установлен"
 
     await reset_fsm_attempts(state)
-    await state.set_state(ChangeBuyRateStates.waiting_new_rate)
+    await state.set_state(ChangeSellRateStates.waiting_new_rate)
     await callback.message.edit_text("⚙️ Панель закрыта.")
     await callback.message.answer(
         f"Текущий курс продажи: {current_str} RUB/USDT\nВведите новый курс:",

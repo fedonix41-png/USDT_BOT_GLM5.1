@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings as app_settings
 from app.database.models.order import OrderTypeEnum
+from app.database.models.rate import RateTypeEnum
 from app.database.models.user import RoleEnum
 from app.fsm.order_states import OrderSellStates
 from app.keyboards.cancel_kb import cancel_keyboard, get_main_keyboard
@@ -22,7 +23,7 @@ from app.services.rate_service import RateService
 from app.services.settings_service import SettingsService
 from app.services.user_service import UserService
 from app.utils.formatting import format_order_message
-from app.utils.helpers import check_fsm_attempts, get_settings_flags, reset_fsm_attempts, reset_fsm_attempts, reset_fsm_attempts, reset_fsm_attempts
+from app.utils.helpers import check_fsm_attempts, get_settings_flags, reset_fsm_attempts
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ async def start_sell(message: Message, state: FSMContext, session: AsyncSession)
 async def _create_sell_order(message: Message, state: FSMContext, session: AsyncSession, amount: Decimal, user) -> None:
     """Shared logic to create a sell order after amount and phone are collected."""
     rate_service = RateService(session)
-    current_rate = await rate_service.get_current_rate(OrderTypeEnum.sell)
+    current_rate = await rate_service.get_current_rate(RateTypeEnum.sell)
     if current_rate is None:
         await message.answer("Курс продажи не установлен. Обратитесь позже.")
         flags = await get_settings_flags(session)
