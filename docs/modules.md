@@ -1,5 +1,12 @@
 # Структура проекта
 
+> **SSOT:** Этот документ — единственный источник истины для структуры файлов и конфигураций.
+> Для других сущностей используйте ссылки на соответствующие документы.
+
+---
+
+## Дерево файлов
+
 ```
 app/
 ├── config.py           # Pydantic Settings — все переменные окружения
@@ -41,7 +48,7 @@ app/
 │
 ├── repositories/       # Слой доступа к данным
 │   ├── base.py         # Generic CRUD (get_by_id, get_all, create, update, delete)
-│   ├── user_repo.py    # get_by_telegram_id, exists_by_telegram_id, set_blocked, set_phone, set_blocked, set_phone
+│   ├── user_repo.py    # get_by_telegram_id, exists_by_telegram_id, set_blocked, set_phone
 │   ├── order_repo.py   # get_active_orders, get_statistics, get_broken_link_orders
 │   ├── rate_repo.py    # get_current_rate, get_rate_history
 │   ├── settings_repo.py # get/set по ключу
@@ -63,7 +70,7 @@ app/
 │   ├── client/         # buy.py, sell.py, rates.py, cancel_order.py, support.py
 │   ├── operator/       # active_orders.py, complete_order.py, statistics.py
 │   ├── admin/          # change_rate.py, change_links.py, toggle_flags.py,
-│   │                   # notification_chats.py, assign_roles.py, ban_user.py, management.py, ban_user.py, management.py
+│   │                   # notification_chats.py, assign_roles.py, ban_user.py, management.py
 │   └── common/         # broken_link.py, cancel.py (глобальная отмена FSM), calendar.py
 │
 ├── middlewares/
@@ -103,7 +110,7 @@ app/
 
 ---
 
-## Слои и зависимости
+## Зависимости между слоями
 
 ```
 handlers/ → services/ → repositories/ → models/
@@ -118,6 +125,7 @@ handlers/ → services/ → repositories/ → models/
 ```
 
 **Поток данных:**
+
 1. Handler получает update от aiogram
 2. Middleware: Throttling → DBSession → User → BotStatus → RoleGuard
 3. Handler вызывает Service (бизнес-логика)
@@ -127,107 +135,109 @@ handlers/ → services/ → repositories/ → models/
 
 ---
 
-## Middleware: порядок выполнения
+## Middleware
 
-```
-Request → ThrottlingMiddleware (outermost)
-        → DBSessionMiddleware
-        → UserMiddleware
-        → BotStatusMiddleware
-        → RoleGuardMiddleware (innermost)
-        → Handler
-```
+> **Порядок и логика:** см. `architecture.md#middleware`.
 
-**Важно:** 
-- ThrottlingMiddleware должен быть первым (outermost), чтобы блокировать спам до любой обработки.
-- DBSessionMiddleware должен быть вторым, чтобы все последующие middleware имели доступ к `session`.
+Файлы middleware:
+
+| Файл | Middleware |
+|------|------------|
+| `app/middlewares/throttling.py` | ThrottlingMiddleware |
+| `app/middlewares/db_session.py` | DBSessionMiddleware |
+| `app/middlewares/user_middleware.py` | UserMiddleware |
+| `app/middlewares/bot_status.py` | BotStatusMiddleware |
+| `app/middlewares/role_guard.py` | RoleGuardMiddleware |
 
 ---
 
-## FSM-сценарии
+## FSM-модули
 
-| FSM | States | Назначение |
-|-----|--------|------------|
-| OrderBuyStates | waiting_amount, waiting_phone, confirm_order | Покупка USDT |
-| OrderSellStates | waiting_amount, waiting_phone, confirm_order | Продажа USDT |
-| StatisticsStates | waiting_start_date, waiting_end_date | Статистика за период |
-| ChangeRateStates | waiting_new_rate | Смена курса |
-| ChangeLinksStates | choosing_type, waiting_new_link | Смена реквизитов |
-| AssignRoleStates | waiting_target_user | Назначение роли |
-| BanUserStates | waiting_target_user | Блокировка пользователя |
-| UnbanUserStates | waiting_target_user | Разблокировка пользователя |
-| SupportStates | waiting_message | Обращение в поддержку |
+> **Детальные сценарии:** см. `scenarios.md`.
 
-**Навигация:** Все FSM поддерживают кнопку «❌ Отмена» — при выходе восстанавливается основное меню по роли.
+Файлы FSM:
 
-**Лимит попыток:** FSM с текстовым вводом ограничены 3 попытками (`check_fsm_attempts()`). После 3 ошибок — автоматическая отмена.
+| Файл | StatesGroup |
+|------|-------------|
+| `app/fsm/order_states.py` | OrderBuyStates, OrderSellStates |
+| `app/fsm/statistics_states.py` | StatisticsStates |
+| `app/fsm/rate_states.py` | ChangeBuyRateStates, ChangeSellRateStates |
+| `app/fsm/links_states.py` | ChangeLinksStates |
+| `app/fsm/role_states.py` | AssignOperatorStates, AssignAdminStates, BanUserStates, UnbanUserStates |
+| `app/fsm/support_states.py` | SupportStates |
 
-**Ввод дат:** Через inline-календарь (calendar_kb.py + handlers/common/calendar.py), не через текст.
+---
+
+## Конфигурация
+
+### config.py (Settings)
+
+```python
+# Telegram
+BOT_TOKEN: str
+
+# Database
+DATABASE_URL: str          # postgresql+asyncpg://...
+POSTGRES_PASSWORD: str     # для Docker Compose
+
+# Redis
+REDIS_URL: str = "redis://localhost:6379/0"
+ARQ_REDIS_URL: str = "redis://localhost:6379/1"
+
+# Security
+ENCRYPTION_KEY: str        # 64-char hex = 32 bytes AES-256
+SUPER_ADMIN_TELEGRAM_ID: int
+
+# Bot behavior
+ORDERS_PER_PAGE: int = 5
+LOG_LEVEL: str = "INFO"
+JSON_LOGS: bool = False
+HEALTH_PORT: int = 8080
+
+# API
+API_SECRET_KEY: str
+API_ACCESS_TOKEN_EXPIRE: int = 1800    # 30 мин
+API_REFRESH_TOKEN_EXPIRE: int = 604800 # 7 дней
+API_PORT: int = 8081
+API_RATE_LIMIT: int = 100              # req/min per IP
+API_CORS_ORIGINS: list[str] = []
+API_ADMIN_IP_WHITELIST: list[str] = []
+API_LOGIN_BLOCK_DURATION: int = 300    # 5 мин
+```
+
+### global_settings (ключи в БД)
+
+| Ключ | Тип значения | Назначение |
+|------|-------------|------------|
+| `bot_enabled` | `"1"` / `"0"` | Глобальное включение бота |
+| `buy_enabled` | `"1"` / `"0"` | Разрешена покупка |
+| `sell_enabled` | `"1"` / `"0"` | Разрешена продажа |
+| `payment_link_buy` | hex (зашифровано) | Реквизиты для покупки |
+| `payment_link_sell` | hex (зашифровано) | Реквизиты для продажи |
 
 ---
 
 ## ARQ-задачи
 
-| Задача | Триггер | Действие |
-|--------|---------|----------|
-| send_notification | Создание заявки, жалоба, назначение роли, завершение | Отправка сообщения в чат (max_tries=3, деактивация чата при ошибках) |
-| update_broken_links | Смена реквизитов админом | Редактирование сообщений клиентов с битой ссылкой |
+> **Триггеры и обработка ошибок:** см. `architecture.md#arq-tasks`.
 
-**Обработка ошибок send_notification:**
-- `TelegramForbiddenError` — бот заблокирован → деактивация чата, уведомление SuperAdmin
-- `TelegramNotFound` — чат не найден → деактивация чата, уведомление SuperAdmin
-- Исчерпание попыток (max_tries=3) → деактивация чата, уведомление SuperAdmin
+| Задача | Файл |
+|--------|------|
+| `send_notification` | `app/tasks/jobs.py` |
+| `update_broken_links` | `app/tasks/jobs.py` |
 
 ---
 
-## Ключевые конфигурации
+## Enum-типы
 
-### config.py (Settings)
-
-```python
-BOT_TOKEN: str
-DATABASE_URL: str
-REDIS_URL: str = "redis://localhost:6379/0"
-ENCRYPTION_KEY: str  # 64-char hex = 32 bytes AES-256
-SUPER_ADMIN_TELEGRAM_ID: int
-ORDERS_PER_PAGE: int = 5
-ARQ_REDIS_URL: str = "redis://localhost:6379/1"
-LOG_LEVEL: str = "INFO"
-JSON_LOGS: bool = False
-HEALTH_PORT: int = 8080
-# API
-API_SECRET_KEY: str
-API_ACCESS_TOKEN_EXPIRE: int = 1800  # 30 мин
-API_REFRESH_TOKEN_EXPIRE: int = 604800  # 7 дней
-API_PORT: int = 8081
-API_RATE_LIMIT: int = 100  # req/min per IP
-API_CORS_ORIGINS: list[str] = []
-API_ADMIN_IP_WHITELIST: list[str] = []
-API_LOGIN_BLOCK_DURATION: int = 300  # 5 мин
-```
-
-### global_settings (ключи)
-
-| Ключ | Значение | Назначение |
-|------|----------|------------|
-| bot_enabled | "1"/"0" | Глобальное включение бота |
-| buy_enabled | "1"/"0" | Разрешена покупка |
-| sell_enabled | "1"/"0" | Разрешена продажа |
-| payment_link_buy | hex (зашифровано) | Реквизиты для покупки |
-| payment_link_sell | hex (зашифровано) | Реквизиты для продажи |
+> **Правила использования и имена PostgreSQL:** см. `database.md#enum-типы`.
 
 ---
 
-## Enum-типы (PostgreSQL)
+## См. также
 
-При объявлении `Enum()` в SQLAlchemy **всегда указывать `name=`** явно:
-
-```python
-# Правильно:
-role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum, name="user_role"), ...)
-
-# Неправильно (сгенерирует "roleenum"):
-role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), ...)
-```
-
-Имена: `user_role`, `order_type`, `order_status`, `rate_type`
+- **Архитектура и middleware:** `architecture.md`
+- **Схема БД и enum:** `database.md`
+- **FSM-сценарии:** `scenarios.md`
+- **Роли и права:** `roles.md`
+- **Технологии:** `stack.md`

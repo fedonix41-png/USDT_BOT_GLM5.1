@@ -1,16 +1,21 @@
 # Схема базы данных
 
-## Обзор
-
-База данных PostgreSQL 15 содержит 6 таблиц, 4 enum-типа и набор индексов для оптимизации запросов. Управление схемой — через Alembic миграции.
+> **SSOT:** Этот документ — единственный источник истины для схемы БД, таблиц и enum-типов.
+> При упоминании enum в других документах используйте ссылку: `см. database.md#enum-типы`.
 
 ---
 
-## Enum типы
+## Обзор
+
+База данных PostgreSQL 15 содержит 7 таблиц, 4 enum-типа и набор индексов для оптимизации запросов. Управление схемой — через Alembic миграции.
+
+---
+
+## Enum-типы (Единственный источник истины)
+
+> **Важно:** Все enum-типы описаны только здесь. При упоминании в моделях или modules.md используйте ссылку на этот раздел.
 
 ### RoleEnum
-
-Роли пользователей с иерархией прав.
 
 **Имя типа в PostgreSQL:** `user_role`
 
@@ -23,8 +28,6 @@
 
 ### OrderTypeEnum
 
-Тип заявки.
-
 **Имя типа в PostgreSQL:** `order_type`
 
 | Значение | Описание |
@@ -33,8 +36,6 @@
 | `sell` | Продажа USDT клиентом |
 
 ### OrderStatusEnum
-
-Статус заявки.
 
 **Имя типа в PostgreSQL:** `order_status`
 
@@ -46,14 +47,22 @@
 
 ### RateTypeEnum
 
-Тип курса.
-
 **Имя типа в PostgreSQL:** `rate_type`
 
 | Значение | Описание |
 |----------|----------|
 | `buy` | Курс покупки (бот продаёт USDT) |
 | `sell` | Курс продажи (бот покупает USDT) |
+
+### Правила объявления Enum в SQLAlchemy
+
+```python
+# ПРАВИЛЬНО — имя совпадает с миграцией:
+role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum, name="user_role"), ...)
+
+# НЕПРАВИЛЬНО — SQLAlchemy сгенерирует "roleenum", которого нет в БД:
+role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), ...)
+```
 
 ---
 
@@ -69,8 +78,8 @@
 | `telegram_id` | `BIGINT` | `UNIQUE NOT NULL` | Telegram ID пользователя |
 | `username` | `VARCHAR(255)` | `NULL` | Telegram @username |
 | `full_name` | `VARCHAR(255)` | `NULL` | Полное имя из Telegram |
-| `role` | `ENUM(RoleEnum)` | `DEFAULT 'client'` | Роль пользователя |
-| `is_blocked` | `BOOLEAN` | `DEFAULT FALSE` | Флаг блокировки (зарезервировано) |
+| `role` | `user_role` | `DEFAULT 'client'` | Роль пользователя |
+| `is_blocked` | `BOOLEAN` | `DEFAULT FALSE` | Флаг блокировки |
 | `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Дата регистрации |
 
 **Связи:**
@@ -79,7 +88,7 @@
 
 **Особенности:**
 - При `/start` пользователь создаётся с `role='client'`
-- Если `telegram_id == SUPER_ADMIN_TELEGRAM_ID` → `role='super_admin'`
+- Если `telegram_id == SUPER_ADMIN_TELEGRAM_ID` → автоматически `role='super_admin'`
 - `username` и `full_name` могут быть NULL (пользователь без username)
 
 ---
@@ -91,12 +100,12 @@
 | Столбец | Тип | Ограничения | Описание |
 |---------|-----|-------------|----------|
 | `id` | `SERIAL` | `PRIMARY KEY` | ID заявки |
-| `user_id` | `INTEGER` | `FOREIGN KEY → users.id NOT NULL` | Клиент, создавший заявку |
-| `order_type` | `ENUM(OrderTypeEnum)` | `NOT NULL` | Тип: `buy` или `sell` |
+| `user_id` | `INTEGER` | `FK → users.id NOT NULL` | Клиент, создавший заявку |
+| `order_type` | `order_type` | `NOT NULL` | Тип: `buy` или `sell` |
 | `amount_usdt` | `NUMERIC(18,8)` | `NOT NULL` | Сумма в USDT |
 | `rate` | `NUMERIC(18,2)` | `NOT NULL` | Курс на момент создания (RUB/USDT) |
 | `total_fiat` | `NUMERIC(18,2)` | `NOT NULL` | Сумма в фиате (amount_usdt × rate) |
-| `status` | `ENUM(OrderStatusEnum)` | `DEFAULT 'created'` | Статус заявки |
+| `status` | `order_status` | `DEFAULT 'created'` | Статус заявки |
 | `payment_link_snapshot` | `TEXT` | `NULL` | Зашифрованные реквизиты на момент создания |
 | `link_broken` | `BOOLEAN` | `DEFAULT FALSE` | Флаг жалобы на неработающую ссылку |
 | `message_id` | `INTEGER` | `NULL` | ID сообщения с заявкой в чате клиента |
@@ -112,14 +121,11 @@
 | `ix_orders_status_created` | `(status, created_at)` | Активные заявки за период, пагинация |
 | `ix_orders_type_created` | `(order_type, created_at)` | Фильтрация по типу + статистика |
 
-**Связи:**
-- `user_id` → `users.id` (многие-к-одному)
-
 **Особенности:**
-- `payment_link_snapshot` — зашифрованный AES-256-CBC текст (hex-строка). Хранит реквизиты на момент создания, чтобы при смене реквизитов админом старые заявки сохраняли оригинальные данные
-- `message_id` + `chat_id` — используются для редактирования сообщения клиента при обновлении реквизитов (битая ссылка)
-- `NUMERIC(18,8)` для USDT — поддержка дробных значений с высокой точностью
-- `NUMERIC(18,2)` для фиата — рубли с копейками
+- `payment_link_snapshot` — зашифрованный AES-256-CBC текст (hex-строка). Хранит реквизиты на момент создания, чтобы при смене реквизитов админом старые заявки сохраняли оригинальные данные (историческая точность)
+- `message_id` + `chat_id` — используются для редактирования сообщения клиента при обновлении реквизитов (сценарий "битая ссылка" → админ меняет реквизиты → ARQ обновляет сообщения всем клиентам с link_broken=True)
+- `NUMERIC(18,8)` для USDT — поддержка дробных значений с высокой точностью (до 8 знаков)
+- `NUMERIC(18,2)` для фиата — рубли с копейками (до 2 знаков)
 
 ---
 
@@ -130,17 +136,14 @@
 | Столбец | Тип | Ограничения | Описание |
 |---------|-----|-------------|----------|
 | `id` | `SERIAL` | `PRIMARY KEY` | ID записи |
-| `rate_type` | `ENUM(RateTypeEnum)` | `NOT NULL` | Тип курса: `buy` или `sell` |
+| `rate_type` | `rate_type` | `NOT NULL` | Тип курса: `buy` или `sell` |
 | `value` | `NUMERIC(18,2)` | `NOT NULL` | Значение курса (RUB/USDT) |
-| `set_by` | `INTEGER` | `FOREIGN KEY → users.id NOT NULL` | Админ, установивший курс |
+| `set_by` | `INTEGER` | `FK → users.id NOT NULL` | Админ, установивший курс |
 | `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Дата установки |
 
-**Связи:**
-- `set_by` → `users.id` (многие-к-одному)
-
 **Особенности:**
-- Текущий курс определяется как последняя запись с данным `rate_type`, `ORDER BY created_at DESC`
-- История сохраняется полностью — позволяет отслеживать все изменения
+- Append-only: история сохраняется полностью — позволяет отслеживать все изменения и анализировать динамику
+- Текущий курс = последняя запись с данным `rate_type`, `ORDER BY created_at DESC`
 - При отсутствии записей сервис возвращает `None` — бот показывает «Курс не установлен»
 
 ---
@@ -154,59 +157,54 @@
 | `key` | `VARCHAR(255)` | `PRIMARY KEY` | Ключ настройки |
 | `value` | `TEXT` | `NOT NULL` | Значение |
 
-**Ключи:**
+**Ключи и defaults:**
 
-| Ключ | Тип значения | Описание | Default при отсутствии |
-|------|-------------|----------|------------------------|
-| `bot_enabled` | `"1"` или `"0"` | Глобальное включение/отключение бота для клиентов | `"1"` (включён) |
-| `buy_enabled` | `"1"` или `"0"` | Разрешена ли покупка USDT | `"1"` (разрешена) |
-| `sell_enabled` | `"1"` или `"0"` | Разрешена ли продажа USDT | `"1"` (разрешена) |
-| `payment_link_buy` | Зашифрованный текст (hex) | Реквизиты оплаты для покупки | `""` (пусто) |
-| `payment_link_sell` | Зашифрованный текст (hex) | Реквизиты для продажи | `""` (пусто) |
+| Ключ | Default | Описание |
+|------|---------|----------|
+| `bot_enabled` | `"1"` | Глобальное включение бота для клиентов |
+| `buy_enabled` | `"1"` | Разрешена покупка USDT |
+| `sell_enabled` | `"1"` | Разрешена продажа USDT |
+| `payment_link_buy` | `""` | Реквизиты оплаты для покупки (зашифровано) |
+| `payment_link_sell` | `""` | Реквизиты для продажи (зашифровано) |
 
 **Особенности:**
-- Если ключ отсутствует в БД, сервис возвращает default (разрешительный для флагов, пустую строку для ссылок)
-- Это позволяет боту работать даже до первоначальной настройки админом
-- Значения флагов кешируются в Redis с TTL 30 секунд
-- `payment_link_*` — зашифрованы через AES-256-CBC (`EncryptionService`)
+- Разрешительная логика: если ключ отсутствует в БД, сервис возвращает default (`"1"` для флагов, `""` для ссылок). Это позволяет боту работать сразу после деплоя, до первоначальной настройки админом
+- Значения флагов кешируются в Redis с TTL 30 секунд — снижает нагрузку на PostgreSQL и поддерживает горизонтальное масштабирование
+- `payment_link_*` — зашифрованы через AES-256-CBC (`EncryptionService`). Ключ шифрования хранится в `.env` (`ENCRYPTION_KEY`)
 
 ---
 
 ### notification_chats — Чаты уведомлений
 
-Чаты/каналы, куда бот отправляет алерты о событиях.
+Чаты/каналы, куда бот отправляет алерты о событиях (новые заявки, жалобы, назначение ролей).
 
 | Столбец | Тип | Ограничения | Описание |
 |---------|-----|-------------|----------|
 | `id` | `SERIAL` | `PRIMARY KEY` | ID записи |
 | `chat_id` | `BIGINT` | `UNIQUE NOT NULL` | Telegram Chat ID |
-| `added_by` | `INTEGER` | `FOREIGN KEY → users.id NOT NULL` | Админ, добавивший чат |
-| `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Дата добавления |
-
-**Связи:**
-- `added_by` → `users.id` (многие-к-одному)
+| `added_by` | `INTEGER` | `FK → users.id NOT NULL` | Админ, добавивший чат |
+| `is_active` | `BOOLEAN` | `DEFAULT TRUE` | Флаг активности чата |
+| `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Дата добавения |
 
 **Особенности:**
-- Перед добавлением бот проверяет, что он является админом в чате (`bot.get_chat_member`)
-- При ошибке отправки (Forbidden, BadRequest) — чат не удаляется, ошибка логируется
+- Перед добавлением бот проверяет, что он является админом в чате (`bot.get_chat_member`). Иначе — ошибка
+- При ошибке отправки (`TelegramForbiddenError`, `TelegramNotFound`) — чат помечается `is_active=False`, ошибка логируется. Уведомление отправляется SuperAdmin
 - Один и тот же чат невозможно добавить дважды (`UNIQUE` на `chat_id`)
+- `is_active=False` — чат временно деактивирован (ошибки отправки), можно повторно добавить после исправления
 
 ---
 
 ### audit_logs — Аудит-лог
 
-Фиксирует все действия администраторов для отслеживания изменений.
+Фиксирует все действия администраторов для отслеживания изменений и расследования инцидентов.
 
 | Столбец | Тип | Ограничения | Описание |
 |---------|-----|-------------|----------|
 | `id` | `SERIAL` | `PRIMARY KEY` | ID записи |
-| `user_id` | `INTEGER` | `FOREIGN KEY → users.id NOT NULL` | Кто совершил действие |
+| `user_id` | `INTEGER` | `FK → users.id NOT NULL` | Кто совершил действие |
 | `action` | `VARCHAR(255)` | `NOT NULL` | Тип действия |
-| `details` | `JSONB` | `NULL` | Детали изменения (параметры). В ORM — `JSONBCompat` (JSONB на PostgreSQL, JSON на SQLite) |
+| `details` | `JSONB` | `NULL` | Детали изменения (параметры) |
 | `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Дата действия |
-
-**Связи:**
-- `user_id` → `users.id` (многие-к-одному)
 
 **Типы действий (action):**
 
@@ -224,21 +222,22 @@
 | `remove_notification_chat` | Удаление чата уведомлений | `{"chat_id": -1001234567890}` |
 
 **Особенности:**
-- `details` в формате JSONB — позволяет хранить структурированные данные и выполнять запросы по полям. В ORM-модели используется `JSONBCompat` — кросс-диалектный тип (JSONB на PostgreSQL, JSON на SQLite для тестов)
-- Записи только добавляются (append-only), никогда не удаляются и не изменяются
+- `details` в формате JSONB — позволяет хранить структурированные данные и выполнять SQL-запросы по полям (например, найти все изменения курса конкретного пользователя)
+- В ORM используется `JSONBCompat` — кросс-диалектный тип (JSONB на PostgreSQL, JSON на SQLite для тестов)
+- Append-only: записи только добавляются, никогда не удаляются и не изменяются — полная история для аудита
 
 ---
 
 ### api_tokens — Токены REST API
 
-Хранит refresh токены для авторизации в REST API.
+Хранит refresh токены для JWT-аутентификации в REST API.
 
 | Столбец | Тип | Ограничения | Описание |
 |---------|-----|-------------|----------|
 | `id` | `SERIAL` | `PRIMARY KEY` | ID записи |
-| `user_id` | `INTEGER` | `FOREIGN KEY → users.id ON DELETE CASCADE` | Пользователь |
+| `user_id` | `INTEGER` | `FK → users.id ON DELETE CASCADE` | Пользователь |
 | `token_hash` | `VARCHAR(64)` | `NOT NULL` | SHA-256 хеш refresh токена |
-| `jti` | `VARCHAR(36)` | `UNIQUE NOT NULL` | JWT ID (уникальный идентификатор токена) |
+| `jti` | `VARCHAR(36)` | `UNIQUE NOT NULL` | JWT ID (уникальный идентификатор) |
 | `expires_at` | `TIMESTAMP` | `NOT NULL` | Дата истечения |
 | `revoked` | `BOOLEAN` | `DEFAULT FALSE` | Флаг отзыва токена |
 | `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Дата создания |
@@ -250,13 +249,10 @@
 | `ix_api_tokens_user_id` | `(user_id)` | Поиск токенов пользователя |
 | `ix_api_tokens_jti` | `(jti)` | Поиск по JWT ID |
 
-**Связи:**
-- `user_id` → `users.id` (многие-к-одному)
-
 **Особенности:**
-- `token_hash` — SHA-256 хранится вместо самого токена для безопасности
-- При использовании refresh токена старый отзывается и создаётся новый (ротация)
-- `ON DELETE CASCADE` — при удалении пользователя удаляются все его токены
+- Хранится SHA-256 хеш токена, а не сам токен — безопасность при утечке БД. Оригинальный токен невозможно восстановить
+- Ротация токенов: при использовании refresh токена старый отзывается (`revoked=True`), создаётся новый. Защита от кражи токена
+- `ON DELETE CASCADE` — при удалении пользователя все его токены автоматически удаляются
 
 ---
 
@@ -289,6 +285,7 @@
        │           │   │ id (PK)              │
        ├───────────┼──►│ chat_id (UNIQUE)     │
        │           │   │ added_by (FK)        │
+       │           │   │ is_active            │
        │           │   │ created_at           │
        │           │   └──────────────────────┘
        │           │
@@ -311,6 +308,17 @@
        │           │   └──────────────────┘
        │           │
        │           │   ┌──────────────────┐
+       │           │   │ api_tokens       │
+       ├───────────┼──►│ id (PK)          │
+       │           │   │ user_id (FK)     │
+       │           │   │ token_hash       │
+       │           │   │ jti (UNIQUE)     │
+       │           │   │ expires_at       │
+       │           │   │ revoked          │
+       │           │   │ created_at       │
+       │           │   └──────────────────┘
+       │           │
+       │           │   ┌──────────────────┐
        │           │   │ global_settings   │
        │           │   ├──────────────────┤
        │           │   │ key (PK)         │
@@ -325,27 +333,31 @@
 
 ## Миграции
 
-### Alembic
+### Команды
 
-- Конфигурация: `migrations/alembic.ini`, `migrations/env.py`
-- Первая миграция: `migrations/versions/001_initial.py`
-  - Создаёт все 6 таблиц
-  - Создаёт 4 enum-типа (`RoleEnum`, `OrderTypeEnum`, `OrderStatusEnum`, `RateTypeEnum`)
-  - Создаёт индексы на таблице `orders`
-- Вторая миграция: `migrations/versions/002_add_is_active_notification.py`
-  - Добавляет колонку `is_active` в `notification_chats`
-- Третья миграция: `migrations/versions/003_add_api_tokens.py`
-  - Создаёт таблицу `api_tokens` для refresh токенов REST API
-- Команда применения: `uv run alembic upgrade head`
-- Новая миграция: `uv run alembic revision --autogenerate -m "описание"`
-- Для тестов: in-memory SQLite с `create_all()` (без миграций)
+```bash
+# Применить все миграции
+uv run alembic upgrade head
 
-**Важно:** имена PostgreSQL enum-типов в ORM-моделях должны совпадать с именами в миграции. При использовании `Enum(RoleEnum)` SQLAlchemy генерирует имя по имени класса в нижнем регистре (`roleenum`), но миграция создаёт тип `user_role`. Поэтому в ORM-моделях необходимо явно указывать `name=`:
+# Создать новую миграцию
+uv run alembic revision --autogenerate -m "описание"
 
-```python
-# Правильно — имя совпадает с миграцией:
-role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum, name="user_role"), ...)
-
-# Неправильно — SQLAlchemy сгенерирует "roleenum", которого нет в БД:
-role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), ...)
+# Откатить последнюю миграцию
+uv run alembic downgrade -1
 ```
+
+### Существующие миграции
+
+| Файл | Назначение |
+|------|------------|
+| `001_initial.py` | Создание всех таблиц, enum-типов, индексов |
+| `002_add_is_active_notification.py` | Добавление `is_active` в `notification_chats` |
+| `003_add_api_tokens.py` | Создание таблицы `api_tokens` |
+
+---
+
+## См. также
+
+- **Архитектура:** `architecture.md`
+- **Структура файлов:** `modules.md`
+- **Роли и права:** `roles.md`
