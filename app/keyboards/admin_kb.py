@@ -1,7 +1,6 @@
 """Admin and SuperAdmin keyboard layouts."""
 
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
-from app.config import settings
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
 
 def admin_keyboard(
@@ -16,7 +15,6 @@ def admin_keyboard(
     panel triggered by ⚙️ Управление (see management_kb.py).
     """
     kb = [
-        [KeyboardButton(text="💎 Web3 App", web_app=WebAppInfo(url=settings.WEBAPP_URL))],
         [KeyboardButton(text="📋 Заявки"), KeyboardButton(text="📈 Статистика"), KeyboardButton(text="📊 Курсы")],
         [KeyboardButton(text="⚙️ Управление")],
     ]

@@ -6,7 +6,7 @@ import signal
 
 from aiogram import Bot, Dispatcher
 
-from app.bot import setup_bot, setup_dispatcher
+from app.bot import setup_bot, setup_dispatcher, set_miniapp_menu_button
 from app.database.engine import engine
 from app.health import start_health_server
 from app.utils.logging_config import setup_logging
@@ -57,6 +57,9 @@ async def main() -> None:
     shutdown = GracefulShutdown.get_instance()
     shutdown.bot = setup_bot()
     shutdown.dp = setup_dispatcher()
+
+    # Set Mini App menu button
+    await set_miniapp_menu_button(shutdown.bot)
 
     shutdown.setup_signal_handlers()
 

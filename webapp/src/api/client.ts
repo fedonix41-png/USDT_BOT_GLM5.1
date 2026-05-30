@@ -79,7 +79,7 @@ export const api = {
   verifyTelegram(initData: string): Promise<{ token: string; user: UserProfile }> {
     return request("/api/v1/auth/telegram/verify", {
       method: "POST",
-      body: JSON.stringify({ init_data: initData }),
+      body: JSON.stringify({ initData }),
     }).then((raw) => ({
       token: (raw as Record<string, unknown>).token as string,
       user: mapUserResponse((raw as Record<string, unknown>).user as Record<string, unknown>),

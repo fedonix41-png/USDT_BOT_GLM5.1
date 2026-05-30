@@ -4,7 +4,7 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.exceptions import TelegramAPIError
-from aiogram.types import ErrorEvent
+from aiogram.types import ErrorEvent, MenuButtonWebApp
 
 from app.config import settings
 from app.handlers.admin import (
@@ -35,6 +35,19 @@ def setup_bot() -> Bot:
     """Create and return Bot instance."""
     bot = Bot(token=settings.BOT_TOKEN)
     return bot
+
+
+async def set_miniapp_menu_button(bot: Bot) -> None:
+    """Set Mini App as the bot's menu button."""
+    menu_button = MenuButtonWebApp(
+        text="💎 Web3 App",
+        web_app={"url": settings.WEBAPP_URL}
+    )
+    try:
+        await bot.set_chat_menu_button(menu_button=menu_button)
+        logger.info(f"Mini App menu button set successfully: {settings.WEBAPP_URL}")
+    except TelegramAPIError as e:
+        logger.error(f"Failed to set menu button: {e}")
 
 
 def setup_dispatcher() -> Dispatcher:
