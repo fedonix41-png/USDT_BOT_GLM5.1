@@ -78,8 +78,14 @@ role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), ...)
 | `telegram_id` | `BIGINT` | `UNIQUE NOT NULL` | Telegram ID пользователя |
 | `username` | `VARCHAR(255)` | `NULL` | Telegram @username |
 | `full_name` | `VARCHAR(255)` | `NULL` | Полное имя из Telegram |
+| `phone` | `VARCHAR(20)` | `NULL` | Номер телефона |
 | `role` | `user_role` | `DEFAULT 'client'` | Роль пользователя |
 | `is_blocked` | `BOOLEAN` | `DEFAULT FALSE` | Флаг блокировки |
+| `balance` | `NUMERIC(10,2)` | `DEFAULT 0.00` | Баланс USDT |
+| `fiat_balance` | `NUMERIC(10,2)` | `DEFAULT 0.00` | Баланс RUB |
+| `referred_by` | `VARCHAR(255)` | `NULL` | Реферер (username) |
+| `referrals_count` | `INTEGER` | `DEFAULT 0` | Количество рефералов |
+| `referral_earned` | `NUMERIC(10,2)` | `DEFAULT 0.00` | Заработано с рефералов |
 | `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Дата регистрации |
 
 **Связи:**
@@ -353,6 +359,8 @@ uv run alembic downgrade -1
 | `001_initial.py` | Создание всех таблиц, enum-типов, индексов |
 | `002_add_is_active_notification.py` | Добавление `is_active` в `notification_chats` |
 | `003_add_api_tokens.py` | Создание таблицы `api_tokens` |
+| `004_add_phone_to_users.py` | Добавление поля `phone` в `users` |
+| `005_add_user_balances.py` | Добавление полей `balance`, `fiat_balance`, `referred_by`, `referrals_count`, `referral_earned` в `users` |
 
 ---
 

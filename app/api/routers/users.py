@@ -59,6 +59,14 @@ async def get_user(request: web.Request) -> web.Response:
         return web.json_response(UserResponse.model_validate(user).model_dump(mode='json'))
 
 
+@router.get("/api/v1/user/profile")
+async def get_current_user_profile(request: web.Request) -> web.Response:
+    """Get current authenticated user profile."""
+    current_user = await get_current_user(request)
+
+    return web.json_response(UserResponse.model_validate(current_user).model_dump(mode='json'))
+
+
 @router.patch("/api/v1/users/{user_id}/role")
 async def update_user_role(request: web.Request) -> web.Response:
     current_user = await get_current_user(request)

@@ -1,16 +1,82 @@
-# React + Vite
+# USDT Exchange Telegram Mini App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Telegram Mini App для обмена USDT ↔ RUB через P2P платформу.
 
-Currently, two official plugins are available:
+## Технологии
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **React 19** + **TypeScript**
+- **Vite** - сборщик
+- **Tailwind CSS 4** - стилизация
+- **Zustand** - управление состоянием
+- **Motion** - анимации
+- **Lucide React** - иконки
+- **Telegram WebApp SDK** - интеграция с Telegram
 
-## React Compiler
+## Установка
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+```
 
-## Expanding the ESLint configuration
+## Разработка
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm run dev
+```
+
+Приложение будет доступно на `http://localhost:5173`
+
+## Сборка
+
+```bash
+npm run build
+```
+
+Собранные файлы будут в директории `dist/`
+
+## Переменные окружения
+
+Создайте файл `.env`:
+
+```env
+VITE_API_URL=http://localhost:8081
+```
+
+## Структура
+
+```
+src/
+├── components/
+│   ├── user/           # Компоненты для клиентов
+│   ├── admin/          # Компоненты для операторов/админов
+│   └── shared/         # Общие компоненты
+├── store/
+│   └── useAuthStore.ts # Zustand store
+├── types.ts            # TypeScript типы
+├── App.tsx             # Главный компонент
+├── main.tsx            # Точка входа
+└── index.css           # Tailwind CSS
+```
+
+## API Endpoints
+
+- `POST /api/v1/auth/telegram/verify` - Аутентификация через Telegram WebApp
+- `GET /api/v1/user/profile` - Получение профиля пользователя
+- `GET /api/v1/settings` - Получение настроек системы
+- `GET /api/v1/orders` - Получение списка заявок
+- `GET /api/v1/rates` - Получение текущих курсов
+
+## Интеграция с Telegram
+
+Приложение использует Telegram WebApp SDK для:
+- Аутентификации пользователей
+- Haptic feedback
+- Адаптации под тему Telegram
+- Управления viewport
+
+## Роли пользователей
+
+- **client** - обычный пользователь (обмен USDT)
+- **operator** - оператор (модерация заявок)
+- **admin** - администратор (управление курсами, настройками)
+- **super_admin** - суперадминистратор (полный доступ)

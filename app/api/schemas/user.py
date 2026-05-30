@@ -1,6 +1,7 @@
 """User schemas for API."""
 
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
@@ -14,6 +15,10 @@ class UserResponse(BaseModel):
     full_name: str | None
     role: RoleEnum
     is_blocked: bool
+    balance: Decimal = Decimal("0.00")
+    fiat_balance: Decimal = Decimal("0.00")
+    referrals_count: int = 0
+    referral_earned: Decimal = Decimal("0.00")
     created_at: datetime
 
     model_config = {"from_attributes": True}

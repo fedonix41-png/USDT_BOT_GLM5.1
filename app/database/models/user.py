@@ -1,7 +1,8 @@
 import enum
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import BigInteger, Boolean, Enum, String, func
+from sqlalchemy import BigInteger, Boolean, Enum, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -24,6 +25,11 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String(20))
     role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum, name="user_role"), default=RoleEnum.client, nullable=False)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    balance: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"), nullable=False)
+    fiat_balance: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"), nullable=False)
+    referred_by: Mapped[str | None] = mapped_column(String(255))
+    referrals_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    referral_earned: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
 
     orders = relationship("Order", back_populates="user", lazy="selectin")

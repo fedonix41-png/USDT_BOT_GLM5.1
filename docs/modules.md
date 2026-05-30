@@ -8,11 +8,28 @@
 ## Дерево файлов
 
 ```
-webapp/                 # Web3 Telegram Mini App (Frontend)
-├── src/                # Исходный код React + Vite
-├── public/             # Статика (иконки, шрифты)
-├── package.json        # Зависимости NPM
-└── vite.config.js      # Конфигурация сборщика
+webapp/                 # Telegram Mini App (Frontend)
+├── src/
+│   ├── components/
+│   │   ├── user/
+│   │   │   └── UserDashboard.tsx
+│   │   ├── admin/
+│   │   │   └── AdminDashboard.tsx
+│   │   └── shared/
+│   │       └── LoadingSkeleton.tsx
+│   ├── store/
+│   │   └── useAuthStore.ts    # Zustand state management
+│   ├── types.ts               # TypeScript interfaces
+│   ├── App.tsx                # Main app component
+│   ├── main.tsx               # Entry point
+│   └── index.css              # Tailwind CSS
+├── public/                     # Static assets
+├── .env                        # Environment variables (VITE_API_URL)
+├── package.json                # NPM dependencies
+├── tsconfig.json               # TypeScript config
+├── tailwind.config.js          # Tailwind config
+├── vite.config.js              # Vite bundler config
+└── index.html                  # HTML entry with Telegram WebApp SDK
 
 app/
 ├── config.py           # Pydantic Settings — все переменные окружения
@@ -29,7 +46,8 @@ app/
 │   ├── exceptions.py   # APIException, error handlers
 │   ├── routers/
 │   │   ├── auth.py     # POST /api/v1/auth/login, /refresh, /logout
-│   │   ├── users.py    # GET/POST/PATCH /api/v1/users
+│   │   ├── telegram.py # POST /api/v1/auth/telegram/verify (Telegram WebApp auth)
+│   │   ├── users.py    # GET/POST/PATCH /api/v1/users, GET /api/v1/user/profile
 │   │   ├── orders.py   # GET/PATCH /api/v1/orders
 │   │   ├── rates.py    # GET/POST /api/v1/rates
 │   │   ├── settings.py # GET/PATCH /api/v1/settings
