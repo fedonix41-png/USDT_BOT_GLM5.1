@@ -46,9 +46,6 @@ def create_api_app() -> web.Application:
     
     from app.api.routers import telegram
     app.router.add_routes(telegram.router)
-    
-    from app.api.routers import telegram
-    app.router.add_routes(telegram.router)
 
     async def health_check(request: web.Request) -> web.Response:
         return web.json_response({"status": "healthy"})

@@ -2,69 +2,79 @@ export type UserRole = "client" | "operator" | "admin" | "super_admin";
 
 export interface UserProfile {
   id: number;
-  telegram_id: number;
-  username: string | null;
-  full_name: string | null;
+  username: string;
   role: UserRole;
-  is_blocked: boolean;
   balance: number;
-  fiat_balance: number;
-  referrals_count: number;
-  referral_earned: number;
-  created_at: string;
+  fiatBalance: number;
+  status: "active" | "frozen";
+  referredBy?: string;
+  referralsCount: number;
+  referralEarned: number;
 }
 
 export interface ExchangeOrder {
-  id: number;
-  user_id: number;
-  order_type: "buy" | "sell";
-  amount_usdt: number;
+  id: string;
+  username: string;
+  userId: number;
+  type: "buy" | "sell";
+  amountUsdt: number;
+  amountRub: number;
   rate: number;
-  total_fiat: number;
-  status: "pending" | "completed" | "cancelled";
-  link_broken: boolean;
-  client_details?: string;
-  requisites_selected?: string;
-  created_at: string;
-  updated_at: string;
+  clientDetails: string;
+  requisitesSelected: string;
+  status: "pending" | "completed" | "rejected";
+  timestamp: string;
+  rejectionReason?: string;
+  complained?: boolean;
 }
 
 export interface SystemSettings {
-  buy_rate: number;
-  sell_rate: number;
-  buy_enabled: boolean;
-  sell_enabled: boolean;
-  bot_enabled: boolean;
+  buyRate: number;
+  sellRate: number;
+  buyEnabled: boolean;
+  sellEnabled: boolean;
+  botEnabled: boolean;
+  requisitesCard: string;
+  requisitesWallet: string;
+  notificationChats: string[];
 }
 
 export interface SupportMessage {
   id: string;
-  sender_id: number;
-  sender_name: string;
-  sender_role: UserRole;
+  senderId: number;
+  senderName: string;
+  senderRole: UserRole;
   text: string;
   timestamp: string;
 }
 
 export interface SupportTicket {
   id: string;
-  ticket_id: string;
-  user_id: number;
+  userId: number;
   username: string;
   subject: string;
-  order_id?: number;
+  orderId?: string;
   status: "open" | "closed";
   messages: SupportMessage[];
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface Statistics {
-  total_orders: number;
-  completed_orders: number;
-  cancelled_orders: number;
-  total_volume_usdt: number;
-  total_volume_fiat: number;
-  buy_orders: number;
-  sell_orders: number;
+export interface AuthState {
+  token: string | null;
+  user: UserProfile | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  orders: ExchangeOrder[];
+  settings: SystemSettings | null;
+  hapticLogs: { text: string; time: string; type: "light" | "success" | "error" }[];
+  setAuth: (token: string, user: UserProfile) => void;
+  logout: () => void;
+  setLoading: (status: boolean) => void;
+  setOrders: (orders: ExchangeOrder[]) => void;
+  setSettings: (settings: SystemSettings) => void;
+  addHapticLog: (text: string, type: "light" | "success" | "error") => void;
+  clearHapticLogs: () => void;
+  updateUserBalance: (newBalance: number) => void;
+  refreshUserData: () => Promise<void>;
 }

@@ -1,70 +1,96 @@
-import { create } from 'zustand';
-import type { UserProfile, ExchangeOrder, SystemSettings } from '../types';
+import { create } from "zustand";
+import { AuthState, UserProfile, ExchangeOrder, SystemSettings } from "../types";
 
-interface AuthState {
-  token: string | null;
-  user: UserProfile | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  orders: ExchangeOrder[];
-  settings: SystemSettings | null;
-  setAuth: (token: string, user: UserProfile) => void;
-  logout: () => void;
-  setLoading: (status: boolean) => void;
-  setOrders: (orders: ExchangeOrder[]) => void;
-  setSettings: (settings: SystemSettings) => void;
-  updateUserBalance: (newBalance: number) => void;
-  refreshUserData: () => Promise<void>;
-}
+// Telegram SDK Helper for Haptic Feedback
+export const triggerHaptic = {
+  light: (addLog: (text: string, type: "light" | "success" | "error") => void) => {
+    addLog("Вибрация: WebApp.HapticFeedback.impactOccurred('light')", "light");
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      try {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
+      } catch (e) {
+        console.warn("Haptic failed", e);
+      }
+    }
+  },
+  success: (addLog: (text: string, type: "light" | "success" | "error") => void) => {
+    addLog("Вибрация: WebApp.HapticFeedback.notificationOccurred('success')", "success");
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      try {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+      } catch (e) {
+        console.warn("Haptic failed", e);
+      }
+    }
+  },
+  error: (addLog: (text: string, type: "light" | "success" | "error") => void) => {
+    addLog("Вибрация: WebApp.HapticFeedback.notificationOccurred('error')", "error");
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      try {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred("warning");
+      } catch (e) {
+        console.warn("Haptic failed", e);
+      }
+    }
+  }
+};
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  token: localStorage.getItem('token'),
+  token: null,
   user: null,
   isAuthenticated: false,
   isLoading: true,
   orders: [],
   settings: null,
+  hapticLogs: [],
 
-  setAuth: (token: string, user: UserProfile) => {
-    localStorage.setItem('token', token);
-    set({ token, user, isAuthenticated: true });
+  setAuth: (token, user) => set({ token, user, isAuthenticated: true, isLoading: false }),
+  logout: () => set({ token: null, user: null, isAuthenticated: false, isLoading: false, orders: [] }),
+  setLoading: (status) => set({ isLoading: status }),
+  setOrders: (orders) => set({ orders }),
+  setSettings: (settings) => set({ settings }),
+  
+  addHapticLog: (text, type) => {
+    set((state) => ({
+      hapticLogs: [
+        { text, time: new Date().toLocaleTimeString(), type },
+        ...state.hapticLogs.slice(0, 19)
+      ]
+    }));
   },
-
-  logout: () => {
-    localStorage.removeItem('token');
-    set({ token: null, user: null, isAuthenticated: false, orders: [], settings: null });
-  },
-
-  setLoading: (status: boolean) => set({ isLoading: status }),
-
-  setOrders: (orders: ExchangeOrder[]) => set({ orders }),
-
-  setSettings: (settings: SystemSettings) => set({ settings }),
-
-  updateUserBalance: (newBalance: number) => {
-    const { user } = get();
-    if (user) {
-      set({ user: { ...user, balance: newBalance } });
-    }
+  
+  clearHapticLogs: () => set({ hapticLogs: [] }),
+  
+  updateUserBalance: (newBalance) => {
+    set((state) => {
+      if (!state.user) return state;
+      return { user: { ...state.user, balance: newBalance } };
+    });
   },
 
   refreshUserData: async () => {
-    const { token } = get();
-    if (!token) return;
-
     try {
-      const response = await fetch('/api/v1/user/profile', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const user = await response.json();
-        set({ user });
+      const responseProfile = await fetch("/api/v1/user/profile");
+      if (responseProfile.ok) {
+        const user = await responseProfile.json();
+        if (user) {
+          set({ user });
+        }
       }
-    } catch (error) {
-      console.error('Failed to refresh user data:', error);
+      
+      const responseSettings = await fetch("/api/v1/exchange/settings");
+      if (responseSettings.ok) {
+        const settings = await responseSettings.json();
+        set({ settings });
+      }
+
+      const responseOrders = await fetch("/api/v1/exchange/orders");
+      if (responseOrders.ok) {
+        const orders = await responseOrders.json();
+        set({ orders });
+      }
+    } catch (e) {
+      console.error("Ошибка обновления данных пользователя:", e);
     }
-  },
+  }
 }));
