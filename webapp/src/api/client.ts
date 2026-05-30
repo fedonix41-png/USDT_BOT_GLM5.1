@@ -106,6 +106,16 @@ export const api = {
 
   /* ── Orders ──────────────────────────────────────── */
 
+  getAllOrders(offset = 0, limit = 100): Promise<{ items: ExchangeOrder[]; total: number }> {
+    return request(`/api/v1/orders?offset=${offset}&limit=${limit}`).then((raw) => {
+      const d = raw as Record<string, unknown>;
+      const items = Array.isArray(d.items)
+        ? (d.items as Record<string, unknown>[]).map(mapOrderResponse)
+        : [];
+      return { items, total: (d.total as number) ?? items.length };
+    });
+  },
+
   createOrder(orderType: string, amountUsdt: number, clientDetails: string): Promise<ExchangeOrder> {
     const payload = toOrderCreatePayload({ orderType: orderType as OrderCreateRequest["orderType"], amountUsdt, clientDetails });
     return request("/api/v1/orders", {
@@ -115,9 +125,7 @@ export const api = {
   },
 
   cancelOrder(orderId: number): Promise<ExchangeOrder> {
-    return request(`/api/v1/orders/${orderId}/cancel`, { method: "POST" }).then((raw) =>
-      mapOrderResponse(raw as Record<string, unknown>)
-    );
+    return this.updateOrderStatus(orderId, "cancelled");
   },
 
   complainOrder(orderId: number): Promise<ExchangeOrder> {
@@ -179,6 +187,8 @@ export const api = {
     if (data.username !== undefined) payload.username = data.username;
     if (data.fullName !== undefined) payload.full_name = data.fullName;
     if (data.role !== undefined) payload.role = data.role;
+    if (data.balance !== undefined) payload.balance = data.balance;
+    if (data.fiatBalance !== undefined) payload.fiat_balance = data.fiatBalance;
     return request(`/api/v1/admin/users/${userId}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
@@ -186,19 +196,19 @@ export const api = {
   },
 
   blockUser(userId: number): Promise<UserProfile> {
-    return request(`/api/v1/admin/users/${userId}/block`, { method: "POST" }).then((raw) =>
+    return request(`/api/v1/users/${userId}/block`, { method: "POST" }).then((raw) =>
       mapUserResponse(raw as Record<string, unknown>)
     );
   },
 
   unblockUser(userId: number): Promise<UserProfile> {
-    return request(`/api/v1/admin/users/${userId}/unblock`, { method: "POST" }).then((raw) =>
+    return request(`/api/v1/users/${userId}/block`, { method: "DELETE" }).then((raw) =>
       mapUserResponse(raw as Record<string, unknown>)
     );
   },
 
   updateUserRole(userId: number, role: UserRole): Promise<UserProfile> {
-    return request(`/api/v1/admin/users/${userId}/role`, {
+    return request(`/api/v1/users/${userId}/role`, {
       method: "PATCH",
       body: JSON.stringify({ role }),
     }).then((raw) => mapUserResponse(raw as Record<string, unknown>));
@@ -209,22 +219,17 @@ export const api = {
   updateOrderStatus(orderId: number, status: OrderStatus, rejectionReason?: string): Promise<ExchangeOrder> {
     const payload: Record<string, unknown> = { status };
     if (rejectionReason !== undefined) payload.rejection_reason = rejectionReason;
-    return request(`/api/v1/admin/orders/${orderId}/status`, {
+    return request(`/api/v1/orders/${orderId}/status`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     }).then((raw) => mapOrderResponse(raw as Record<string, unknown>));
   },
 
   bulkModerateOrders(orderIds: number[], status: OrderStatus, rejectionReason?: string): Promise<ExchangeOrder[]> {
-    const payload: Record<string, unknown> = { order_ids: orderIds, status };
-    if (rejectionReason !== undefined) payload.rejection_reason = rejectionReason;
-    return request("/api/v1/admin/orders/bulk-moderate", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }).then((raw) => {
-      const arr = raw as Record<string, unknown>[];
-      return Array.isArray(arr) ? arr.map(mapOrderResponse) : [];
-    });
+    const results = orderIds.map((id) =>
+      this.updateOrderStatus(id, status, rejectionReason)
+    );
+    return Promise.all(results);
   },
 
   /* ── Statistics ──────────────────────────────────── */

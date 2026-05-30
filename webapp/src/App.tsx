@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react";
-import { useAuthStore } from "./store/useAuthStore";
+import { useAuthStore, triggerHaptic } from "./store/useAuthStore";
 import UserDashboard from "./components/user/UserDashboard";
 import AdminDashboard from "./components/admin/AdminDashboard";
 import LoadingSkeleton from "./components/shared/LoadingSkeleton";
 import { api } from "./api/client";
-import type { ToastMessage } from "./types";
-import { X, Bell } from "lucide-react";
+import type { ToastMessage, UserRole } from "./types";
+import {
+  X,
+  Bell,
+  Coins,
+  Layers,
+  Cpu,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 declare global {
@@ -25,6 +33,8 @@ declare global {
   }
 }
 
+const isDevMode = () => !window.Telegram?.WebApp?.initData;
+
 export default function App() {
   const {
     isAuthenticated,
@@ -34,19 +44,26 @@ export default function App() {
     setAuth,
     setLoading,
     refreshUserData,
+    addHapticLog,
   } = useAuthStore();
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [devBarOpen, setDevBarOpen] = useState(true);
+  const [simulatedRole, setSimulatedRole] = useState<UserRole>("super_admin");
+  const [faucetAmount, setFaucetAmount] = useState("500.00");
+  const [isDepositing, setIsDepositing] = useState(false);
+  const devMode = isDevMode();
 
-  const showToast = (text: string, type: "success" | "error" | "info") => {
+  const showToast = (text: string, type: ToastMessage["type"] | "deposit") => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, text, type }]);
+    const normalizedType: ToastMessage["type"] = type === "deposit" ? "success" : type;
+    setToasts((prev) => [...prev, { id, text, type: normalizedType }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
   };
 
-  const executeLogin = async () => {
+  const executeLogin = async (roleOverride?: UserRole) => {
     setLoading(true);
     const tgInitData = window.Telegram?.WebApp?.initData;
 
@@ -54,6 +71,11 @@ export default function App() {
       const data = await api.verifyTelegram(tgInitData ?? "");
       setAuth(data.token, data.user);
       await refreshUserData();
+      if (roleOverride) {
+        setSimulatedRole(roleOverride);
+      } else {
+        setSimulatedRole(data.user.role);
+      }
       showToast(`Авторизован как @${data.user.username} (${data.user.role})`, "success");
     } catch (e) {
       console.error(e);
@@ -76,6 +98,50 @@ export default function App() {
     executeLogin();
   }, []);
 
+  const triggerFaucetDeposit = async () => {
+    if (!user) return;
+    setIsDepositing(true);
+    triggerHaptic.light(addHapticLog);
+
+    const amountNum = parseFloat(faucetAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      showToast("Введите корректную сумму", "info");
+      setIsDepositing(false);
+      return;
+    }
+
+    try {
+      await api.updateUser(user.id, {
+        balance: Number((user.balance + amountNum).toFixed(2)),
+      });
+
+      useAuthStore.getState().updateUserBalance(Number((user.balance + amountNum).toFixed(2)));
+      await refreshUserData();
+
+      triggerHaptic.success(addHapticLog);
+      showToast(`Баланс пополнен на +${amountNum.toFixed(2)} USDT!`, "deposit");
+    } catch (e) {
+      console.error(e);
+      showToast("Ошибка при начислении депозита", "error");
+    } finally {
+      setIsDepositing(false);
+    }
+  };
+
+  const handleDevRoleSwitch = async (targetRole: UserRole) => {
+    if (!user) return;
+    triggerHaptic.success(addHapticLog);
+    try {
+      await api.updateUserRole(user.id, targetRole);
+      setSimulatedRole(targetRole);
+      await refreshUserData();
+      showToast(`Роль изменена на ${targetRole}`, "success");
+    } catch (e) {
+      console.error(e);
+      showToast("Ошибка смены роли", "error");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0B0E14] text-white flex flex-col md:flex-row font-sans selection:bg-[#00D09E]/20 overflow-hidden">
 
@@ -95,6 +161,7 @@ export default function App() {
                 Пожалуйста, запустите Mini App через официального Telegram бота или обновите сессию в панели разработчика.
               </p>
               <button
+                id="btn-app-retry-login"
                 onClick={() => executeLogin()}
                 className="px-6 py-2.5 rounded-xl bg-[#00D09E] text-gray-950 font-extrabold text-xs tracking-wider uppercase active:scale-95 transition-transform"
               >
@@ -121,6 +188,140 @@ export default function App() {
 
       </div>
 
+      {devMode && (
+        <div className="w-full md:w-96 bg-[#161B26] border-t md:border-t-0 md:border-l border-gray-800/80 p-5 flex flex-col justify-between relative z-30 font-sans shadow-2xl shrink-0 overflow-y-auto md:max-h-screen">
+
+          <div className="space-y-4">
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#00D09E] animate-ping" />
+                <Cpu className="w-5 h-5 text-[#00D09E]" />
+                <h3 className="text-sm font-extrabold text-white uppercase tracking-wider">Панель Разработчика (Песочница)</h3>
+              </div>
+
+              <button
+                id="btn-toggle-dev-panel"
+                onClick={() => {
+                  triggerHaptic.light(addHapticLog);
+                  setDevBarOpen(!devBarOpen);
+                }}
+                className="p-1 rounded bg-[#0B0E14] text-[#8E9AA7]"
+              >
+                {devBarOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            </div>
+
+            <p className="text-[11px] text-[#8E9AA7] leading-relaxed">
+              Интерактивный пульт для тестирования логики обменного бота USDT ↔ RUB (купить/продать). Переключайте роли для проверки матрицы прав.
+            </p>
+
+            <AnimatePresence>
+              {devBarOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="space-y-4.5 overflow-hidden pt-1"
+                >
+                  <div className="space-y-2 bg-[#0B0E14] border border-gray-850 p-3.5 rounded-2xl">
+                    <span className="text-[10px] text-[#8E9AA7] uppercase font-bold flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-[#00D09E]" />
+                      Переключить RBAC роль:
+                    </span>
+
+                    <div className="grid grid-cols-2 gap-1.5 pt-1">
+                      {(["client", "operator", "admin", "super_admin"] as const).map((rl) => (
+                        <button
+                          key={rl}
+                          id={`btn-dev-role-${rl}`}
+                          onClick={() => handleDevRoleSwitch(rl)}
+                          disabled={!user}
+                          className={`py-2 text-[10px] uppercase font-bold rounded-xl transition-all ${
+                            simulatedRole === rl
+                              ? "bg-[#00D09E] text-gray-950 font-black shadow-lg shadow-[#00D09E]/10"
+                              : "bg-[#161B26] border border-gray-800 text-[#8E9AA7] hover:text-white"
+                          } disabled:opacity-40`}
+                        >
+                          {rl === "client" ? "client (ур. 1)" : rl === "operator" ? "operator (ур. 2)" : rl === "admin" ? "admin (ур. 3)" : "super admin"}
+                        </button>
+                      ))}
+                    </div>
+
+                    <span className="text-[9px] text-[#8E9AA7]/85 block leading-tight pt-1">
+                      * Смена роли обновляет RBAC-привилегии через API бота и обновляет интерфейс.
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 bg-[#0B0E14] border border-gray-850 p-3.5 rounded-2xl">
+                    <span className="text-[10px] text-[#8E9AA7] uppercase font-bold flex items-center gap-1.5">
+                      <Coins className="w-3.5 h-3.5 text-[#00D09E]" />
+                      Начислить баланс USDT (для продажи):
+                    </span>
+
+                    <div className="grid grid-cols-1 gap-2">
+                      <div className="space-y-1">
+                        <span className="text-[9px] text-gray-500 uppercase font-black">Количество USDT</span>
+                        <input
+                          type="number"
+                          id="dev-faucet-amount"
+                          value={faucetAmount}
+                          onChange={(e) => setFaucetAmount(e.target.value)}
+                          className="w-full text-xs bg-[#161B26] border border-gray-800 rounded-xl p-2.5 font-bold text-white focus:outline-none focus:border-[#00D09E]"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      id="btn-dev-deposit-trigger"
+                      onClick={triggerFaucetDeposit}
+                      disabled={isDepositing || !user}
+                      className="w-full py-3 rounded-xl bg-[#00D09E]/10 border border-[#00D09E]/30 text-[#00D09E] text-xs font-bold hover:bg-[#00D09E]/20 active:scale-[0.99] transition-transform flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
+                    >
+                      {isDepositing ? (
+                        <span>Начисление...</span>
+                      ) : (
+                        <>
+                          <Coins className="w-3.5 h-3.5" />
+                          <span>Начислить {faucetAmount} USDT на баланс</span>
+                        </>
+                      )}
+                    </button>
+
+                    <span className="text-[9px] text-[#8E9AA7]/85 block leading-tight">
+                      * Это обновит баланс текущей сессии через API бота, вы сможете протестировать продажу USDT за Рубли.
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 bg-[#0B0E14] border border-gray-850 p-3 rounded-2xl">
+                    <div className="flex justify-between items-center text-[10px] text-[#8E9AA7] uppercase font-bold">
+                      <span>Телеметрия Haptics (Последний):</span>
+                      <span className="text-gray-500">Live</span>
+                    </div>
+                    <div className="bg-[#161B26] border border-gray-800 text-[10px] font-mono p-2.5 rounded-xl text-gray-400 min-h-11">
+                      {useAuthStore.getState().hapticLogs?.[0] ? (
+                        <span className={useAuthStore.getState().hapticLogs[0].type === "success" ? "text-[#00D09E]" : "text-white"}>
+                          [{useAuthStore.getState().hapticLogs[0].time}] {useAuthStore.getState().hapticLogs[0].text}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">Логи тактильного отклика пусты...</span>
+                      )}
+                    </div>
+                  </div>
+
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-gray-800/60 hidden md:block text-center">
+            <span className="text-[10px] font-mono text-gray-650 tracking-wider">TELEPAY EXCHANGE TMA v6 • DEV SANDBOX</span>
+          </div>
+
+        </div>
+      )}
+
       <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
         <AnimatePresence>
           {toasts.map((toast) => (
@@ -145,7 +346,7 @@ export default function App() {
                       ? "bg-red-500/10 text-red-500"
                       : "bg-gray-800 text-[#8E9AA7]"
                 }`}>
-                  <Bell className="w-4 h-4" />
+                  {toast.type === "success" ? <Coins className="w-4 h-4 animate-bounce" /> : <Bell className="w-4 h-4" />}
                 </div>
                 <span>{toast.text}</span>
               </div>

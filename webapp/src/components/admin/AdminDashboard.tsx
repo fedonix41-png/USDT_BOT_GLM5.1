@@ -1,7 +1,6 @@
 import { useState, useEffect, FormEvent } from "react";
 import { useAuthStore, triggerHaptic } from "../../store/useAuthStore";
 import { api } from "../../api/client";
-import { mapOrderResponse } from "../../api/mappers";
 import { ExchangeOrder, SupportTicket, UserProfile, UserRole, StatisticsData } from "../../types";
 import { 
   Users, 
@@ -78,16 +77,8 @@ export default function AdminDashboard() {
 
   const loadModerationOrders = async () => {
     try {
-      const token = useAuthStore.getState().token;
-      const res = await fetch("/api/v1/orders?offset=0&limit=200", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const items = Array.isArray(data.items) ? data.items : [];
-        const mapped = items.map((item: Record<string, unknown>) => mapOrderResponse(item));
-        setPendingOrders(mapped.filter((o: ExchangeOrder) => o.status === "created"));
-      }
+      const result = await api.getAllOrders(0, 200);
+      setPendingOrders(result.items.filter((o) => o.status === "created"));
     } catch (e) {
       console.error(e);
     }
@@ -292,40 +283,35 @@ export default function AdminDashboard() {
     }
 
     try {
-      const token = useAuthStore.getState().token;
-      const response = await fetch(`/api/v1/admin/users/${editingUser.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          balance: balanceNum,
-          fiat_balance: fiatBalanceNum,
-          role: newUserRole,
-          is_blocked: newUserStatus === "frozen",
-        }),
-      });
-
-      if (response.ok) {
-        triggerHaptic.success(addHapticLog);
-        setCrmSuccess("Профиль пользователя в CRM успешно сохранен!");
-        
-        await loadCrmUsers();
-        await refreshUserData();
-        
-        setTimeout(() => {
-          setEditingUser(null);
-          setCrmSuccess("");
-        }, 1500);
-      } else {
-        const err = await response.json();
-        setCrmError(err.detail || err.error || "Ошибка сохранения");
-        triggerHaptic.error(addHapticLog);
+      if (newUserRole !== editingUser.role) {
+        await api.updateUserRole(editingUser.id, newUserRole);
       }
-    } catch (err) {
-      console.error(err);
-      setCrmError("Сбой сети при сохранении CRM.");
+
+      if (newUserStatus === "frozen" && !editingUser.isBlocked) {
+        await api.blockUser(editingUser.id);
+      } else if (newUserStatus === "active" && editingUser.isBlocked) {
+        await api.unblockUser(editingUser.id);
+      }
+
+      if (balanceNum !== editingUser.balance || fiatBalanceNum !== editingUser.fiatBalance) {
+        await api.updateUser(editingUser.id, {
+          balance: balanceNum,
+          fiatBalance: fiatBalanceNum,
+        });
+      }
+
+      triggerHaptic.success(addHapticLog);
+      setCrmSuccess("Профиль пользователя в CRM успешно сохранен!");
+
+      await loadCrmUsers();
+      await refreshUserData();
+
+      setTimeout(() => {
+        setEditingUser(null);
+        setCrmSuccess("");
+      }, 1500);
+    } catch (err: any) {
+      setCrmError(err?.message || "Ошибка сохранения");
       triggerHaptic.error(addHapticLog);
     }
   };

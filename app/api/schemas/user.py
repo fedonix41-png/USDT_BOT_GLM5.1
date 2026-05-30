@@ -33,3 +33,10 @@ class UserListResponse(BaseModel):
 
 class RoleUpdateRequest(BaseModel):
     role: RoleEnum = Field(..., description="New role for the user")
+
+
+class UserUpdateRequest(BaseModel):
+    balance: Decimal | None = Field(None, description="New USDT balance")
+    fiat_balance: Decimal | None = Field(None, description="New fiat (RUB) balance")
+    username: str | None = Field(None, description="New username")
+    full_name: str | None = Field(None, description="New full name")

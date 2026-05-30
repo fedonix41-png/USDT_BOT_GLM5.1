@@ -10,7 +10,7 @@ from app.api.deps import get_current_user, require_min_role
 from app.api.exceptions import ForbiddenError, NotFoundError
 from app.api.exceptions import ValidationError as APIValidationError
 from app.api.schemas.order import OrderListResponse, OrderResponse
-from app.api.schemas.user import RoleUpdateRequest, UserListResponse, UserResponse
+from app.api.schemas.user import RoleUpdateRequest, UserListResponse, UserResponse, UserUpdateRequest
 from app.database.engine import async_session_maker
 from app.database.models.user import RoleEnum
 from app.repositories.audit_repo import AuditRepository
@@ -93,6 +93,54 @@ async def list_current_user_orders(request: web.Request) -> web.Response:
         )
 
         return web.json_response(response.model_dump(mode='json'))
+
+
+@router.patch("/api/v1/admin/users/{user_id}")
+async def admin_update_user(request: web.Request) -> web.Response:
+    await require_min_role(RoleEnum.admin)(request)
+    current_user = await get_current_user(request)
+
+    user_id = int(request.match_info["user_id"])
+
+    try:
+        body_text = request.get("body_text", "")
+        if not body_text:
+            body_text = await request.text()
+        data = json.loads(body_text)
+        update_data = UserUpdateRequest(**data)
+    except json.JSONDecodeError:
+        raise APIValidationError("Invalid JSON body")
+    except ValidationError as e:
+        raise APIValidationError(str(e))
+
+    async with async_session_maker() as session:
+        user_repo = UserRepository(session)
+        audit_repo = AuditRepository(session)
+        user = await user_repo.get_by_id(user_id)
+
+        if user is None:
+            raise NotFoundError("User not found")
+
+        if update_data.balance is not None:
+            user.balance = update_data.balance
+        if update_data.fiat_balance is not None:
+            user.fiat_balance = update_data.fiat_balance
+        if update_data.username is not None:
+            user.username = update_data.username
+        if update_data.full_name is not None:
+            user.full_name = update_data.full_name
+
+        await session.flush()
+
+        await audit_repo.log(
+            user_id=current_user.id,
+            action="update_user",
+            details={"target_user_id": user_id, "fields": list(data.keys())},
+        )
+
+        logger.info(f"Admin {current_user.telegram_id} updated user {user.telegram_id}")
+
+        return web.json_response(UserResponse.model_validate(user).model_dump(mode='json'))
 
 
 @router.patch("/api/v1/users/{user_id}/role")
