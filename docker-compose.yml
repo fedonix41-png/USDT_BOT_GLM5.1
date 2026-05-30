@@ -100,5 +100,11 @@ services:
     network_mode: host
     restart: unless-stopped
 
+  cloudflare-webhook:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_WEBHOOK_TOKEN}
+    network_mode: host
+    restart: unless-stopped
+    
 volumes:
   pgdata:
