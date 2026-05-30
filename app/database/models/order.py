@@ -31,6 +31,7 @@ class Order(Base):
     status: Mapped[OrderStatusEnum] = mapped_column(
         Enum(OrderStatusEnum, name="order_status"), default=OrderStatusEnum.created, nullable=False
     )
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     payment_link_snapshot: Mapped[str | None] = mapped_column(Text)
     link_broken: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     message_id: Mapped[int | None] = mapped_column(Integer)

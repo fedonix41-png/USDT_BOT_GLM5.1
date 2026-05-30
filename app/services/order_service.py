@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models.order import Order, OrderStatusEnum, OrderTypeEnum
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.order_repo import OrderRepository
+from app.repositories.user_repo import UserRepository
 from app.services.encryption import EncryptionService
 
 
@@ -16,6 +17,7 @@ class OrderService:
         self.session = session
         self.order_repo = OrderRepository(session)
         self.audit_repo = AuditRepository(session)
+        self.user_repo = UserRepository(session)
         self.encryption = encryption
 
     async def create_order(
@@ -42,10 +44,47 @@ class OrderService:
         )
         return order
 
+    async def create_order_web(
+        self,
+        user_id: int,
+        order_type: OrderTypeEnum,
+        amount_usdt: Decimal,
+        rate: Decimal,
+        client_details: str,
+    ) -> Order:
+        total_fiat = amount_usdt * rate
+        encrypted_details = self.encryption.encrypt(client_details) if client_details else None
+        order = await self.order_repo.create(
+            user_id=user_id,
+            order_type=order_type,
+            amount_usdt=amount_usdt,
+            rate=rate,
+            total_fiat=total_fiat,
+            payment_link_snapshot=encrypted_details,
+        )
+        return order
+
     async def cancel_order(self, order_id: int, user_id: int) -> Order | None:
         order = await self.order_repo.get_by_id(order_id)
         if order is None or order.status != OrderStatusEnum.created:
             return None
+        order.status = OrderStatusEnum.cancelled
+        await self.session.flush()
+        return order
+
+    async def cancel_order_by_client(self, order_id: int, user_id: int) -> Order | None:
+        order = await self.order_repo.get_by_id(order_id)
+        if order is None:
+            return None
+        if order.user_id != user_id:
+            return None
+        if order.status != OrderStatusEnum.created:
+            return None
+        if order.order_type == OrderTypeEnum.sell:
+            user = await self.user_repo.get_by_id(user_id)
+            if user is not None:
+                user.balance = user.balance + order.amount_usdt
+                await self.session.flush()
         order.status = OrderStatusEnum.cancelled
         await self.session.flush()
         return order
@@ -63,9 +102,33 @@ class OrderService:
         )
         return order
 
+    async def reject_order(self, order_id: int, operator_user_id: int, rejection_reason: str | None = None) -> Order | None:
+        order = await self.order_repo.get_by_id(order_id)
+        if order is None or order.status != OrderStatusEnum.created:
+            return None
+        order.status = OrderStatusEnum.cancelled
+        order.rejection_reason = rejection_reason
+        await self.session.flush()
+        await self.audit_repo.log(
+            user_id=operator_user_id,
+            action="reject_order",
+            details={"order_id": order_id, "rejection_reason": rejection_reason},
+        )
+        return order
+
     async def mark_link_broken(self, order_id: int) -> Order | None:
         order = await self.order_repo.get_by_id(order_id)
         if order is None:
+            return None
+        order.link_broken = True
+        await self.session.flush()
+        return order
+
+    async def flag_order_broken(self, order_id: int, user_id: int) -> Order | None:
+        order = await self.order_repo.get_by_id(order_id)
+        if order is None:
+            return None
+        if order.user_id != user_id:
             return None
         order.link_broken = True
         await self.session.flush()

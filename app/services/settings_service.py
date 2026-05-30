@@ -70,3 +70,17 @@ class SettingsService:
         new_value = "0" if current == "1" else "1"
         await self.set(key, new_value, user_id=user_id)
         return new_value == "1"
+
+    async def get_requisites_card(self) -> str:
+        value = await self.settings_repo.get("requisites_card")
+        return value if value is not None else "0000 0000 0000 0000"
+
+    async def get_requisites_wallet(self) -> str:
+        value = await self.settings_repo.get("requisites_wallet")
+        return value if value is not None else "TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+    async def set_requisites_card(self, value: str, user_id: int) -> None:
+        await self.set("requisites_card", value, user_id=user_id)
+
+    async def set_requisites_wallet(self, value: str, user_id: int) -> None:
+        await self.set("requisites_wallet", value, user_id=user_id)

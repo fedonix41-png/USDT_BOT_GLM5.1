@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function LoadingSkeleton() {
   return (
     <div className="min-h-screen bg-[#0B0E14] text-white p-4 flex flex-col justify-between font-sans">

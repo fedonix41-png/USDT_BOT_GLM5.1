@@ -12,16 +12,21 @@ webapp/                 # Telegram Mini App (Frontend)
 ├── src/
 │   ├── components/
 │   │   ├── user/
-│   │   │   └── UserDashboard.tsx
+│   │   │   └── UserDashboard.tsx   # Полнофункциональный дашборд клиента (TelePay): 5 вкладок — Exchange, History, Profile, Referrals, Support
 │   │   ├── admin/
-│   │   │   └── AdminDashboard.tsx
+│   │   │   └── AdminDashboard.tsx  # Полнофункциональный дашборд админа (TelePay): 5 вкладок — Moderation, CRM, Support, Settings, Stats
 │   │   └── shared/
-│   │       └── LoadingSkeleton.tsx
+│   │       ├── LoadingSkeleton.tsx
+│   │       └── QrCodeGenerator.tsx
+│   ├── api/                        # TelePay: API-слой
+│   │   ├── client.ts               # Централизованный API-клиент (Bearer token, 401→logout, ApiError)
+│   │   └── mappers.ts              # snake_case ↔ camelCase мапперы (7 штук + reverse mapper)
 │   ├── store/
-│   │   └── useAuthStore.ts    # Zustand state management
-│   ├── types.ts               # TypeScript interfaces
-│   ├── App.tsx                # Main app component
+│   │   └── useAuthStore.ts         # Zustand state management (+tickets, refreshUserData с Promise.allSettled)
+│   ├── types.ts                    # TypeScript интерфейсы (TelePay: ExchangeOrder, OrderCreateRequest, StatisticsData, ToastMessage, AuthState)
+│   ├── App.tsx                # Main app component (TelePay: toast notifications, bot-disabled screen, auth error, viewport wrapper, api.verifyTelegram)
 │   ├── main.tsx               # Entry point
+│   ├── vite-env.d.ts          # CSS/motion module declarations (TelePay)
 │   └── index.css              # Tailwind CSS
 ├── public/                     # Static assets
 ├── .env                        # Environment variables (VITE_API_URL)
@@ -47,15 +52,17 @@ app/
 │   ├── routers/
 │   │   ├── auth.py     # POST /api/v1/auth/login, /refresh, /logout
 │   │   ├── telegram.py # POST /api/v1/auth/telegram/verify (Telegram WebApp auth)
-│   │   ├── users.py    # GET/POST/PATCH /api/v1/users, GET /api/v1/user/profile
-│   │   ├── orders.py   # GET/PATCH /api/v1/orders
+│   │   ├── users.py    # GET/POST/PATCH /api/v1/users, GET /api/v1/user/profile, GET /api/v1/user/orders (TelePay)
+│   │   ├── orders.py   # GET/PATCH /api/v1/orders, POST /api/v1/orders (TelePay), POST /api/v1/orders/{id}/complain (TelePay)
+│   │   ├── exchange.py  # GET/PATCH /api/v1/exchange/settings (TelePay — combined settings endpoint)
 │   │   ├── rates.py    # GET/POST /api/v1/rates
 │   │   ├── settings.py # GET/PATCH /api/v1/settings
 │   │   └── statistics.py # GET /api/v1/statistics
 │   └── schemas/
 │       ├── auth.py     # LoginRequest, TokenResponse, RefreshRequest
 │       ├── user.py     # UserResponse, UserListResponse, RoleUpdateRequest
-│       ├── order.py    # OrderResponse, OrderListResponse, OrderStatusUpdate
+│       ├── order.py    # OrderResponse, OrderListResponse, OrderStatusUpdate, OrderCreateRequest (TelePay), rejection_reason (TelePay)
+│       ├── exchange.py  # ExchangeSettingsResponse, ExchangeSettingsUpdateRequest (TelePay)
 │       ├── rate.py     # RateResponse, RateCreateRequest
 │       ├── settings.py # SettingsResponse, SettingsUpdateRequest
 │       └── statistics.py # StatisticsResponse
@@ -65,7 +72,7 @@ app/
 │   ├── base.py         # DeclarativeBase
 │   ├── types.py        # JSONBCompat (PostgreSQL JSONB / SQLite JSON)
 │   └── models/         # ORM модели
-│       ├── user.py, order.py, rate.py
+│       ├── user.py, order.py (+rejection_reason TelePay), rate.py
 │       ├── global_settings.py
 │       ├── notification_chat.py, audit_log.py
 │       └── api_token.py # APIToken для refresh токенов
@@ -83,9 +90,9 @@ app/
 ├── services/           # Бизнес-логика
 │   ├── encryption.py   # AES-256-CBC шифрование (encrypt/decrypt)
 │   ├── user_service.py # get_or_create, set_role, block_user, unblock_user, set_phone, is_super_admin
-│   ├── order_service.py # create_order, cancel_order, complete_order, get_statistics
+│   ├── order_service.py # create_order, cancel_order, complete_order, get_statistics + TelePay: create_order_web, cancel_order_by_client, reject_order, flag_order_broken
 │   ├── rate_service.py # get_current_rate, set_rate
-│   ├── settings_service.py # is_bot_enabled, get_payment_link, set_payment_link
+│   ├── settings_service.py # is_bot_enabled, get_payment_link, set_payment_link + TelePay: get_requisites_card, get_requisites_wallet, set_requisites_card, set_requisites_wallet
 │   ├── notification_service.py # send_to_all_chats, notify_*
 │   └── audit_service.py # log
 │
@@ -238,6 +245,8 @@ API_LOGIN_BLOCK_DURATION: int = 300    # 5 мин
 | `sell_enabled` | `"1"` / `"0"` | Разрешена продажа |
 | `payment_link_buy` | hex (зашифровано) | Реквизиты для покупки |
 | `payment_link_sell` | hex (зашифровано) | Реквизиты для продажи |
+| `requisites_card` | текст | Реквизиты карты для webapp (TelePay) |
+| `requisites_wallet` | текст | Реквизиты кошелька для webapp (TelePay) |
 
 ---
 

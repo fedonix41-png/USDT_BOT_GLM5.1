@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { AuthState, UserProfile, ExchangeOrder, SystemSettings } from "../types";
+import type { AuthState } from "../types";
+import { api } from "../api/client";
 
-// Telegram SDK Helper for Haptic Feedback
 export const triggerHaptic = {
   light: (addLog: (text: string, type: "light" | "success" | "error") => void) => {
     addLog("Вибрация: WebApp.HapticFeedback.impactOccurred('light')", "light");
@@ -35,21 +35,23 @@ export const triggerHaptic = {
   }
 };
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   user: null,
   isAuthenticated: false,
   isLoading: true,
   orders: [],
   settings: null,
+  tickets: [],
   hapticLogs: [],
 
   setAuth: (token, user) => set({ token, user, isAuthenticated: true, isLoading: false }),
-  logout: () => set({ token: null, user: null, isAuthenticated: false, isLoading: false, orders: [] }),
+  logout: () => set({ token: null, user: null, isAuthenticated: false, isLoading: false, orders: [], tickets: [] }),
   setLoading: (status) => set({ isLoading: status }),
   setOrders: (orders) => set({ orders }),
   setSettings: (settings) => set({ settings }),
-  
+  setTickets: (tickets) => set({ tickets }),
+
   addHapticLog: (text, type) => {
     set((state) => ({
       hapticLogs: [
@@ -58,9 +60,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       ]
     }));
   },
-  
+
   clearHapticLogs: () => set({ hapticLogs: [] }),
-  
+
   updateUserBalance: (newBalance) => {
     set((state) => {
       if (!state.user) return state;
@@ -70,24 +72,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   refreshUserData: async () => {
     try {
-      const responseProfile = await fetch("/api/v1/user/profile");
-      if (responseProfile.ok) {
-        const user = await responseProfile.json();
-        if (user) {
-          set({ user });
-        }
-      }
-      
-      const responseSettings = await fetch("/api/v1/exchange/settings");
-      if (responseSettings.ok) {
-        const settings = await responseSettings.json();
-        set({ settings });
+      const [profileResult, settingsResult, ordersResult] = await Promise.allSettled([
+        api.getProfile(),
+        api.getExchangeSettings(),
+        api.getUserOrders(),
+      ]);
+
+      if (profileResult.status === "fulfilled") {
+        set({ user: profileResult.value });
       }
 
-      const responseOrders = await fetch("/api/v1/exchange/orders");
-      if (responseOrders.ok) {
-        const orders = await responseOrders.json();
-        set({ orders });
+      if (settingsResult.status === "fulfilled") {
+        set({ settings: settingsResult.value });
+      }
+
+      if (ordersResult.status === "fulfilled") {
+        set({ orders: ordersResult.value.items });
       }
     } catch (e) {
       console.error("Ошибка обновления данных пользователя:", e);

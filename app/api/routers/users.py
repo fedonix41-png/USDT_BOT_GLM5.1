@@ -9,11 +9,14 @@ from pydantic import ValidationError
 from app.api.deps import get_current_user, require_min_role
 from app.api.exceptions import ForbiddenError, NotFoundError
 from app.api.exceptions import ValidationError as APIValidationError
+from app.api.schemas.order import OrderListResponse, OrderResponse
 from app.api.schemas.user import RoleUpdateRequest, UserListResponse, UserResponse
 from app.database.engine import async_session_maker
 from app.database.models.user import RoleEnum
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.user_repo import UserRepository
+from app.services.encryption import EncryptionService
+from app.services.order_service import OrderService
 from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
@@ -65,6 +68,31 @@ async def get_current_user_profile(request: web.Request) -> web.Response:
     current_user = await get_current_user(request)
 
     return web.json_response(UserResponse.model_validate(current_user).model_dump(mode='json'))
+
+
+@router.get("/api/v1/user/orders")
+async def list_current_user_orders(request: web.Request) -> web.Response:
+    current_user = await get_current_user(request)
+
+    offset = int(request.query.get("offset", "0"))
+    limit = int(request.query.get("limit", "20"))
+    limit = min(limit, 100)
+
+    async with async_session_maker() as session:
+        order_service = OrderService(session, EncryptionService())
+        orders = await order_service.order_repo.get_user_orders(
+            current_user.id, offset=offset, limit=limit
+        )
+        total = await order_service.order_repo.count_user_orders(current_user.id)
+
+        response = OrderListResponse(
+            items=[OrderResponse.model_validate(o) for o in orders],
+            total=total,
+            offset=offset,
+            limit=limit,
+        )
+
+        return web.json_response(response.model_dump(mode='json'))
 
 
 @router.patch("/api/v1/users/{user_id}/role")

@@ -54,6 +54,11 @@ class OrderRepository(BaseRepository[Order]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def count_user_orders(self, user_id: int) -> int:
+        stmt = select(func.count()).where(Order.user_id == user_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
+
     async def get_statistics(self, start: datetime, end: datetime) -> dict:
         base_filter = Order.created_at.between(start, end)
         active_statuses = [OrderStatusEnum.created, OrderStatusEnum.completed]

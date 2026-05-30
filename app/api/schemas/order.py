@@ -17,6 +17,7 @@ class OrderResponse(BaseModel):
     total_fiat: Decimal
     status: OrderStatusEnum
     link_broken: bool
+    rejection_reason: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -32,5 +33,12 @@ class OrderListResponse(BaseModel):
 
 class OrderStatusUpdateRequest(BaseModel):
     status: OrderStatusEnum = Field(..., description="New status (completed or cancelled)")
+    rejection_reason: str | None = Field(None, description="Reason for rejection (if cancelling)")
 
     model_config = {"from_attributes": True}
+
+
+class OrderCreateRequest(BaseModel):
+    order_type: OrderTypeEnum = Field(..., description="Order type: buy or sell")
+    amount_usdt: Decimal = Field(..., gt=0, description="Amount of USDT")
+    client_details: str = Field(..., description="Payment details from client")

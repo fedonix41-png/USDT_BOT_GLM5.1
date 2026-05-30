@@ -114,6 +114,7 @@ role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), ...)
 | `status` | `order_status` | `DEFAULT 'created'` | Статус заявки |
 | `payment_link_snapshot` | `TEXT` | `NULL` | Зашифрованные реквизиты на момент создания |
 | `link_broken` | `BOOLEAN` | `DEFAULT FALSE` | Флаг жалобы на неработающую ссылку |
+| `rejection_reason` | `TEXT` | `NULL` | Причина отклонения заявки оператором (TelePay) |
 | `message_id` | `INTEGER` | `NULL` | ID сообщения с заявкой в чате клиента |
 | `chat_id` | `BIGINT` | `NULL` | Chat ID клиента (для редактирования сообщения) |
 | `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Дата создания |
@@ -132,6 +133,7 @@ role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), ...)
 - `message_id` + `chat_id` — используются для редактирования сообщения клиента при обновлении реквизитов (сценарий "битая ссылка" → админ меняет реквизиты → ARQ обновляет сообщения всем клиентам с link_broken=True)
 - `NUMERIC(18,8)` для USDT — поддержка дробных значений с высокой точностью (до 8 знаков)
 - `NUMERIC(18,2)` для фиата — рубли с копейками (до 2 знаков)
+- `rejection_reason` — заполняется при отклонении заявки через `OrderService.reject_order()`. NULL для созданных и завершённых заявок
 
 ---
 
@@ -172,11 +174,14 @@ role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), ...)
 | `sell_enabled` | `"1"` | Разрешена продажа USDT |
 | `payment_link_buy` | `""` | Реквизиты оплаты для покупки (зашифровано) |
 | `payment_link_sell` | `""` | Реквизиты для продажи (зашифровано) |
+| `requisites_card` | `""` | Реквизиты карты для webapp (TelePay) |
+| `requisites_wallet` | `""` | Реквизиты кошелька для webapp (TelePay) |
 
 **Особенности:**
 - Разрешительная логика: если ключ отсутствует в БД, сервис возвращает default (`"1"` для флагов, `""` для ссылок). Это позволяет боту работать сразу после деплоя, до первоначальной настройки админом
 - Значения флагов кешируются в Redis с TTL 30 секунд — снижает нагрузку на PostgreSQL и поддерживает горизонтальное масштабирование
 - `payment_link_*` — зашифрованы через AES-256-CBC (`EncryptionService`). Ключ шифрования хранится в `.env` (`ENCRYPTION_KEY`)
+- `requisites_card`, `requisites_wallet` — добавлены в TelePay для webapp-настроек (миграция 006). Хранятся как текст, без шифрования
 
 ---
 
@@ -306,8 +311,9 @@ role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), ...)
        │           │   │ total_fiat       │
        │           │   │ status           │
        │           │   │ payment_link_... │
-       │           │   │ link_broken      │
-       │           │   │ message_id       │
+        │           │   │ link_broken      │
+        │           │   │ rejection_reason  │  ← TelePay
+        │           │   │ message_id       │
        │           │   │ chat_id          │
        │           │   │ created_at       │
        │           │   │ updated_at       │
@@ -361,6 +367,8 @@ uv run alembic downgrade -1
 | `003_add_api_tokens.py` | Создание таблицы `api_tokens` |
 | `004_add_phone_to_users.py` | Добавление поля `phone` в `users` |
 | `005_add_user_balances.py` | Добавление полей `balance`, `fiat_balance`, `referred_by`, `referrals_count`, `referral_earned` в `users` |
+| `006_add_requisites_settings.py` | Вставка ключей `requisites_card` и `requisites_wallet` в `global_settings` (TelePay) |
+| `007_add_rejection_reason.py` | Добавление колонки `rejection_reason` (TEXT, nullable) в `orders` (TelePay) |
 
 ---
 
