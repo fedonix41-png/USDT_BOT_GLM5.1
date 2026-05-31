@@ -17,6 +17,7 @@ from app.api.schemas.order import (
     OrderResponse,
     OrderStatusUpdateRequest,
 )
+from app.config import settings
 from app.database.engine import async_session_maker
 from app.database.models.order import OrderStatusEnum, OrderTypeEnum
 from app.database.models.rate import RateTypeEnum
@@ -58,9 +59,9 @@ async def create_order(request: web.Request) -> web.Response:
         raise APIValidationError("Minimum amount is 10 USDT")
 
     async with async_session_maker() as session:
-        settings_service = SettingsService(session, EncryptionService())
+        settings_service = SettingsService(session, EncryptionService(settings.ENCRYPTION_KEY))
         rate_service = RateService(session)
-        order_service = OrderService(session, EncryptionService())
+        order_service = OrderService(session, EncryptionService(settings.ENCRYPTION_KEY))
 
         if order_data.order_type == OrderTypeEnum.buy:
             buy_enabled = await settings_service.is_buy_enabled()
@@ -110,7 +111,7 @@ async def list_orders(request: web.Request) -> web.Response:
     limit = min(limit, 100)
 
     async with async_session_maker() as session:
-        order_service = OrderService(session, EncryptionService())
+        order_service = OrderService(session, EncryptionService(settings.ENCRYPTION_KEY))
         orders = await order_service.get_active_orders(offset=offset, limit=limit)
         total = await order_service.count_active_orders()
 
@@ -131,7 +132,7 @@ async def get_order(request: web.Request) -> web.Response:
     order_id = int(request.match_info["order_id"])
 
     async with async_session_maker() as session:
-        order_service = OrderService(session, EncryptionService())
+        order_service = OrderService(session, EncryptionService(settings.ENCRYPTION_KEY))
         order = await order_service.get_order_by_id(order_id)
 
         if order is None:
@@ -170,7 +171,7 @@ async def update_order_status(request: web.Request) -> web.Response:
             raise APIValidationError("Clients can only cancel orders")
 
         async with async_session_maker() as session:
-            order_service = OrderService(session, EncryptionService())
+            order_service = OrderService(session, EncryptionService(settings.ENCRYPTION_KEY))
             order = await order_service.cancel_order_by_client(order_id, current_user.id)
 
             if order is None:
@@ -190,7 +191,7 @@ async def update_order_status(request: web.Request) -> web.Response:
         raise APIValidationError("Status must be 'completed' or 'cancelled'")
 
     async with async_session_maker() as session:
-        order_service = OrderService(session, EncryptionService())
+        order_service = OrderService(session, EncryptionService(settings.ENCRYPTION_KEY))
 
         if status_data.status == OrderStatusEnum.completed:
             order = await order_service.complete_order(order_id, current_user.id)
@@ -214,7 +215,7 @@ async def complain_order(request: web.Request) -> web.Response:
     order_id = int(request.match_info["order_id"])
 
     async with async_session_maker() as session:
-        order_service = OrderService(session, EncryptionService())
+        order_service = OrderService(session, EncryptionService(settings.ENCRYPTION_KEY))
         order = await order_service.flag_order_broken(order_id, current_user.id)
 
         if order is None:

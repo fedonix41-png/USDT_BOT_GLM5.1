@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { Component, ErrorInfo, ReactNode, useEffect, useState } from "react";
 import { useAuthStore, triggerHaptic } from "./store/useAuthStore";
 import UserDashboard from "./components/user/UserDashboard";
 import AdminDashboard from "./components/admin/AdminDashboard";
@@ -35,7 +35,7 @@ declare global {
 
 const isDevMode = () => !window.Telegram?.WebApp?.initData;
 
-export default function App() {
+function AppContent() {
   const {
     isAuthenticated,
     user,
@@ -362,5 +362,71 @@ export default function App() {
       </div>
 
     </div>
+  );
+}
+
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
+}
+
+class ErrorBoundary extends Component<Props, State> {
+  public state: State = {
+    hasError: false,
+    error: null,
+    errorInfo: null,
+  };
+
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error, errorInfo: null };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+    this.setState({ errorInfo });
+  }
+
+  public render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#0B0E14] text-white p-8 flex flex-col justify-center items-center font-sans space-y-4">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 text-3xl animate-pulse">
+            ⚠️
+          </div>
+          <h2 className="text-lg font-black text-white">Произошла ошибка интерфейса</h2>
+          <p className="text-xs text-[#8E9AA7] text-center max-w-md">
+            При рендеринге компонента произошла непредвиденная ошибка.
+          </p>
+          <div className="w-full max-w-lg bg-[#161B26] border border-gray-800 p-4 rounded-xl text-left overflow-x-auto">
+            <pre className="text-[10px] font-mono text-red-400 whitespace-pre-wrap">
+              <strong>Error:</strong> {this.state.error?.toString()}
+              {"\n\n"}
+              <strong>Stack:</strong> {this.state.error?.stack}
+            </pre>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2.5 rounded-xl bg-[#00D09E] text-gray-950 font-extrabold text-xs tracking-wider uppercase active:scale-95 transition-transform"
+          >
+            Перезагрузить страницу
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
   );
 }

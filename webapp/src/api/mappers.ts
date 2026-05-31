@@ -16,10 +16,10 @@ export function mapUserResponse(data: Record<string, unknown>): UserProfile {
     fullName: (data.full_name as string) ?? "",
     role: (data.role as UserProfile["role"]) ?? "client",
     isBlocked: (data.is_blocked as boolean) ?? false,
-    balance: (data.balance as number) ?? 0,
-    fiatBalance: (data.fiat_balance as number) ?? 0,
+    balance: Number(data.balance) || 0,
+    fiatBalance: Number(data.fiat_balance) || 0,
     referralsCount: (data.referrals_count as number) ?? 0,
-    referralEarned: (data.referral_earned as number) ?? 0,
+    referralEarned: Number(data.referral_earned) || 0,
     createdAt: (data.created_at as string) ?? "",
   };
 }
@@ -30,9 +30,9 @@ export function mapOrderResponse(data: Record<string, unknown>): ExchangeOrder {
     userId: (data.user_id as number) ?? 0,
     username: (data.username as string) ?? "",
     orderType: (data.order_type as ExchangeOrder["orderType"]) ?? "buy",
-    amountUsdt: (data.amount_usdt as number) ?? 0,
-    rate: (data.rate as number) ?? 0,
-    totalFiat: (data.total_fiat as number) ?? 0,
+    amountUsdt: Number(data.amount_usdt) || 0,
+    rate: Number(data.rate) || 0,
+    totalFiat: Number(data.total_fiat) || 0,
     status: (data.status as ExchangeOrder["status"]) ?? "created",
     paymentLinkSnapshot: (data.payment_link_snapshot as string) ?? "",
     linkBroken: (data.link_broken as boolean) ?? false,
@@ -44,8 +44,8 @@ export function mapOrderResponse(data: Record<string, unknown>): ExchangeOrder {
 
 export function mapSettingsResponse(data: Record<string, unknown>): SystemSettings {
   return {
-    buyRate: (data.buy_rate as number) ?? 0,
-    sellRate: (data.sell_rate as number) ?? 0,
+    buyRate: Number(data.buy_rate) || 0,
+    sellRate: Number(data.sell_rate) || 0,
     buyEnabled: (data.buy_enabled as boolean) ?? true,
     sellEnabled: (data.sell_enabled as boolean) ?? true,
     botEnabled: (data.bot_enabled as boolean) ?? true,
@@ -88,8 +88,8 @@ export function mapStatisticsResponse(data: Record<string, unknown>): Statistics
     totalOrders: (data.total_orders as number) ?? 0,
     completedOrders: (data.completed_orders as number) ?? 0,
     cancelledOrders: (data.cancelled_orders as number) ?? 0,
-    totalVolumeUsdt: (data.total_volume_usdt as number) ?? 0,
-    totalVolumeFiat: (data.total_volume_fiat as number) ?? 0,
+    totalVolumeUsdt: Number(data.total_volume_usdt) || 0,
+    totalVolumeFiat: Number(data.total_volume_fiat) || 0,
     buyOrders: (data.buy_orders as number) ?? 0,
     sellOrders: (data.sell_orders as number) ?? 0,
   };

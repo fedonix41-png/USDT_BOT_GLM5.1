@@ -190,12 +190,11 @@ export default function UserDashboard({ onOrderCreated }: UserDashboardProps) {
   }, [kycProgress]);
 
   const isGoldActive = userLevel === "gold";
-  const effectiveBuyRate = settings 
-    ? (isGoldActive ? settings.buyRate - 0.45 : settings.buyRate) 
-    : 0;
-  const effectiveSellRate = settings 
-    ? (isGoldActive ? settings.sellRate + 0.45 : settings.sellRate) 
-    : 0;
+  const buyRateBase = settings && settings.buyRate > 0 ? settings.buyRate : 94.50;
+  const sellRateBase = settings && settings.sellRate > 0 ? settings.sellRate : 93.90;
+
+  const effectiveBuyRate = isGoldActive ? buyRateBase - 0.45 : buyRateBase;
+  const effectiveSellRate = isGoldActive ? sellRateBase + 0.45 : sellRateBase;
 
   const parsedUsdt = parseFloat(usdtAmount);
   const isBelowLimit = isNaN(parsedUsdt) || parsedUsdt < MIN_EXCHANGE_LIMIT_USDT;

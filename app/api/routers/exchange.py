@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from app.api.deps import get_current_user, require_min_role
 from app.api.exceptions import ValidationError as APIValidationError
 from app.api.schemas.exchange import ExchangeSettingsResponse, ExchangeSettingsUpdateRequest
+from app.config import settings
 from app.database.engine import async_session_maker
 from app.database.models.rate import RateTypeEnum
 from app.database.models.user import RoleEnum
@@ -26,7 +27,7 @@ async def get_exchange_settings(request: web.Request) -> web.Response:
     await get_current_user(request)
 
     async with async_session_maker() as session:
-        settings_service = SettingsService(session, EncryptionService())
+        settings_service = SettingsService(session, EncryptionService(settings.ENCRYPTION_KEY))
         rate_service = RateService(session)
         notification_repo = NotificationRepository(session)
 
@@ -72,7 +73,7 @@ async def update_exchange_settings(request: web.Request) -> web.Response:
         raise APIValidationError(str(e))
 
     async with async_session_maker() as session:
-        settings_service = SettingsService(session, EncryptionService())
+        settings_service = SettingsService(session, EncryptionService(settings.ENCRYPTION_KEY))
         rate_service = RateService(session)
         notification_repo = NotificationRepository(session)
 

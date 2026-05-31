@@ -8,6 +8,7 @@ from aiohttp import web
 from app.api.deps import require_min_role
 from app.api.exceptions import ValidationError as APIValidationError
 from app.api.schemas.statistics import StatisticsResponse
+from app.config import settings
 from app.database.engine import async_session_maker
 from app.database.models.user import RoleEnum
 from app.services.encryption import EncryptionService
@@ -50,7 +51,7 @@ async def get_statistics(request: web.Request) -> web.Response:
         date_to = datetime.utcnow()
 
     async with async_session_maker() as session:
-        order_service = OrderService(session, EncryptionService())
+        order_service = OrderService(session, EncryptionService(settings.ENCRYPTION_KEY))
         stats = await order_service.get_statistics(date_from, date_to)
 
         response = StatisticsResponse(

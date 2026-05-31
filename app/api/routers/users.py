@@ -11,6 +11,7 @@ from app.api.exceptions import ForbiddenError, NotFoundError
 from app.api.exceptions import ValidationError as APIValidationError
 from app.api.schemas.order import OrderListResponse, OrderResponse
 from app.api.schemas.user import RoleUpdateRequest, UserListResponse, UserResponse, UserUpdateRequest
+from app.config import settings
 from app.database.engine import async_session_maker
 from app.database.models.user import RoleEnum
 from app.repositories.audit_repo import AuditRepository
@@ -79,7 +80,7 @@ async def list_current_user_orders(request: web.Request) -> web.Response:
     limit = min(limit, 100)
 
     async with async_session_maker() as session:
-        order_service = OrderService(session, EncryptionService())
+        order_service = OrderService(session, EncryptionService(settings.ENCRYPTION_KEY))
         orders = await order_service.order_repo.get_user_orders(
             current_user.id, offset=offset, limit=limit
         )

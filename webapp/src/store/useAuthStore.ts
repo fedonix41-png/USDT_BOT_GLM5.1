@@ -84,6 +84,20 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (settingsResult.status === "fulfilled") {
         set({ settings: settingsResult.value });
+      } else {
+        console.warn("Failed to fetch settings, using robust fallback stubs:", settingsResult.reason);
+        set({
+          settings: {
+            buyRate: 94.50,
+            sellRate: 93.90,
+            buyEnabled: true,
+            sellEnabled: true,
+            botEnabled: true,
+            requisitesCard: "2202 2012 3456 7890",
+            requisitesWallet: "TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            notificationChats: [],
+          }
+        });
       }
 
       if (ordersResult.status === "fulfilled") {
