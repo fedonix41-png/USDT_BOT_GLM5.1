@@ -28,6 +28,20 @@ class NotificationService:
         if app_settings.SUPER_ADMIN_TELEGRAM_ID:
             chat_ids.add(app_settings.SUPER_ADMIN_TELEGRAM_ID)
             
+        # Add all operators, admins, and super admins from the DB so they receive direct DM notifications too
+        from sqlalchemy import select
+        from app.database.models.user import User, RoleEnum
+        try:
+            stmt = select(User).where(User.role.in_([RoleEnum.operator, RoleEnum.admin, RoleEnum.super_admin]))
+            res = await self.session.execute(stmt)
+            staff_users = res.scalars().all()
+            for staff in staff_users:
+                if staff.telegram_id:
+                    chat_ids.add(staff.telegram_id)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to fetch staff users for direct notifications: {e}")
+            
         for chat_id in chat_ids:
             try:
                 await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)

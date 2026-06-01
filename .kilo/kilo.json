@@ -1,5 +1,9 @@
 {
   "$schema": "https://app.kilo.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    "GEMINI.md"
+  ],
   "mcp": {
     "git": {
       "type": "local",
