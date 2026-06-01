@@ -475,11 +475,20 @@ export default function AdminDashboard() {
                             Жалоба: Битая реквизитная карта
                           </span>
                         )}
-                        <span className={`text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-full ${
-                          ord.orderType === "buy" ? "bg-[#00D09E]/10 text-[#00D09E]" : "bg-red-500/10 text-red-400"
-                        }`}>
-                          {ord.orderType === "buy" ? "Купить USDT (Рубли →)" : "Продать USDT (→ Рубли)"}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-full ${
+                            ord.orderType === "buy" ? "bg-[#00D09E]/10 text-[#00D09E]" : "bg-red-500/10 text-red-400"
+                          }`}>
+                            {ord.orderType === "buy" ? "Купить USDT (Рубли →)" : "Продать USDT (→ Рубли)"}
+                          </span>
+                          {ord.orderType === "sell" && (
+                            <span className={`text-[9px] font-mono font-bold px-2.5 py-0.5 rounded-full ${
+                              ord.isPaidFromBalance ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                            }`}>
+                              {ord.isPaidFromBalance ? "Списано с баланса Mini App" : "Внешний перевод USDT"}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Transaction specifications value conversion details */}
@@ -507,9 +516,13 @@ export default function AdminDashboard() {
                           </span>
                         </div>
                         <div className="border-t border-gray-800/40 pt-1">
-                          <span className="text-gray-500 block text-[9px] uppercase font-bold">Реквизиты, показанные клиенту:</span>
+                          <span className="text-gray-550 block text-[9px] uppercase font-bold">Способ оплаты клиентом / Реквизиты обменника:</span>
                           <span className="text-[10px] text-gray-400 font-mono block select-all">
-                            {ord.orderType === "buy" ? (settings?.requisitesCard || "—") : (settings?.requisitesWallet || "—")}
+                            {ord.orderType === "buy" 
+                              ? `Перевод на карту: ${settings?.requisitesCard || "—"}` 
+                              : ord.isPaidFromBalance 
+                                ? "🟢 Списано автоматически с баланса Mini App" 
+                                : `Перевод на кошелек: ${settings?.requisitesWallet || "—"}`}
                           </span>
                         </div>
                       </div>

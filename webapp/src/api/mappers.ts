@@ -35,6 +35,7 @@ export function mapOrderResponse(data: Record<string, unknown>): ExchangeOrder {
     totalFiat: Number(data.total_fiat) || 0,
     status: (data.status as ExchangeOrder["status"]) ?? "created",
     paymentLinkSnapshot: (data.payment_link_snapshot as string) ?? "",
+    isPaidFromBalance: (data.is_paid_from_balance as boolean) ?? false,
     linkBroken: (data.link_broken as boolean) ?? false,
     rejectionReason: (data.rejection_reason as string | null) ?? null,
     createdAt: (data.created_at as string) ?? "",

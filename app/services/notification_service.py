@@ -68,21 +68,30 @@ class NotificationService:
             client_info = f"ID: {user.telegram_id}"
 
         details_str = ""
+        is_paid_from_balance = False
         if order.payment_link_snapshot:
             try:
                 encryption = EncryptionService(app_settings.ENCRYPTION_KEY)
                 decrypted = encryption.decrypt(order.payment_link_snapshot)
                 if decrypted:
+                    if decrypted.startswith("[BALANCE_PAID]"):
+                        is_paid_from_balance = True
+                        decrypted = decrypted.replace("[BALANCE_PAID]", "", 1)
                     details_str = f"\nРеквизиты: {decrypted}"
             except Exception:
                 pass
+
+        payment_method = "Перевод на карту" if order.order_type.value == "buy" else (
+            "Списано с баланса Mini App" if is_paid_from_balance else "Внешний перевод USDT на кошелек"
+        )
 
         text = (
             f"🆕 Новая заявка #{order.id}\n"
             f"Тип: {order_type_str}\n"
             f"Клиент: {client_info} (ID: {user.telegram_id})\n"
             f"Сумма: {order.amount_usdt} USDT\n"
-            f"К оплате: {order.total_fiat} RUB"
+            f"К оплате: {order.total_fiat} RUB\n"
+            f"Метод: {payment_method}"
             f"{details_str}"
         )
         kb = order_operator_kb(order.id)

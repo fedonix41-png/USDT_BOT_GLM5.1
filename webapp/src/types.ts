@@ -65,6 +65,8 @@ export interface ExchangeOrder {
   status: OrderStatus;
   /** Saved payment link / requisites at order time */
   paymentLinkSnapshot: string;
+  /** Whether the order was paid from the internal balance */
+  isPaidFromBalance?: boolean;
   /** Whether the payment link was flagged as broken */
   linkBroken: boolean;
   /** Reason if cancelled by admin */

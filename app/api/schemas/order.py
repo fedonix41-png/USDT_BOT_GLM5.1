@@ -18,10 +18,30 @@ class OrderResponse(BaseModel):
     status: OrderStatusEnum
     link_broken: bool
     rejection_reason: str | None = None
+    payment_link_snapshot: str | None = None
+    is_paid_from_balance: bool = False
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):
+        instance = super().model_validate(obj, *args, **kwargs)
+        if hasattr(obj, "payment_link_snapshot") and obj.payment_link_snapshot:
+            try:
+                from app.config import settings
+                from app.services.encryption import EncryptionService
+                enc = EncryptionService(settings.ENCRYPTION_KEY)
+                decrypted = enc.decrypt(obj.payment_link_snapshot)
+                if decrypted and decrypted.startswith("[BALANCE_PAID]"):
+                    instance.is_paid_from_balance = True
+                    instance.payment_link_snapshot = decrypted.replace("[BALANCE_PAID]", "", 1)
+                else:
+                    instance.payment_link_snapshot = decrypted
+            except Exception:
+                instance.payment_link_snapshot = obj.payment_link_snapshot
+        return instance
 
 
 class OrderListResponse(BaseModel):

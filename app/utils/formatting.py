@@ -37,7 +37,17 @@ def format_order_for_operator(order: Order, user: User | None = None, decrypted_
         username = "N/A"
     tg_id = user.telegram_id if user else "N/A"
 
+    is_paid_from_balance = False
+    if decrypted_details and decrypted_details.startswith("[BALANCE_PAID]"):
+        is_paid_from_balance = True
+        decrypted_details = decrypted_details.replace("[BALANCE_PAID]", "", 1)
+
     details_line = f"Реквизиты/Кошелек: {decrypted_details}\n" if decrypted_details else ""
+
+    payment_method_line = ""
+    if order.order_type == OrderTypeEnum.sell:
+        method = "Списано с баланса Mini App" if is_paid_from_balance else "Внешний перевод USDT на кошелек"
+        payment_method_line = f"Метод оплаты: {method}\n"
 
     return (
         f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -45,6 +55,7 @@ def format_order_for_operator(order: Order, user: User | None = None, decrypted_
         f"Клиент: {username} (ID: {tg_id})\n"
         f"Сумма: {order.amount_usdt} USDT\n"
         f"К оплате: {order.total_fiat} RUB\n"
+        f"{payment_method_line}"
         f"{details_line}"
         f"Дата: {order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'N/A'}\n"
         f"━━━━━━━━━━━━━━━━━━━━"

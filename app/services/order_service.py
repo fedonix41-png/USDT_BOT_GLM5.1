@@ -64,10 +64,28 @@ class OrderService:
         )
         return order
 
+    async def _refund_sell_balance_if_needed(self, order: Order) -> None:
+        """Refund sell order amount to user balance if it was paid from balance."""
+        if order.order_type == OrderTypeEnum.sell and order.payment_link_snapshot:
+            try:
+                decrypted = self.encryption.decrypt(order.payment_link_snapshot)
+                if decrypted and decrypted.startswith("[BALANCE_PAID]"):
+                    user = await self.user_repo.get_by_id(order.user_id)
+                    if user is not None:
+                        user.balance = user.balance + order.amount_usdt
+                        # Strip the prefix to avoid double-refund if somehow called again
+                        # and keep database clean
+                        clean_details = decrypted.replace("[BALANCE_PAID]", "", 1)
+                        order.payment_link_snapshot = self.encryption.encrypt(clean_details)
+                        await self.session.flush()
+            except Exception:
+                pass
+
     async def cancel_order(self, order_id: int, user_id: int) -> Order | None:
         order = await self.order_repo.get_by_id(order_id)
         if order is None or order.status != OrderStatusEnum.created:
             return None
+        await self._refund_sell_balance_if_needed(order)
         order.status = OrderStatusEnum.cancelled
         await self.session.flush()
         return order
@@ -80,11 +98,7 @@ class OrderService:
             return None
         if order.status != OrderStatusEnum.created:
             return None
-        if order.order_type == OrderTypeEnum.sell:
-            user = await self.user_repo.get_by_id(user_id)
-            if user is not None:
-                user.balance = user.balance + order.amount_usdt
-                await self.session.flush()
+        await self._refund_sell_balance_if_needed(order)
         order.status = OrderStatusEnum.cancelled
         await self.session.flush()
         return order
@@ -106,6 +120,7 @@ class OrderService:
         order = await self.order_repo.get_by_id(order_id)
         if order is None or order.status != OrderStatusEnum.created:
             return None
+        await self._refund_sell_balance_if_needed(order)
         order.status = OrderStatusEnum.cancelled
         order.rejection_reason = rejection_reason
         await self.session.flush()

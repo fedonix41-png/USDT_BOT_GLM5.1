@@ -77,18 +77,23 @@ async def create_order(request: web.Request) -> web.Response:
         if rate is None:
             raise APIValidationError("Rate not set for this order type")
 
+        is_paid_from_balance = False
         if order_data.order_type == OrderTypeEnum.sell:
-            if current_user.balance < order_data.amount_usdt:
-                raise APIValidationError("Insufficient USDT balance")
-            current_user.balance = current_user.balance - order_data.amount_usdt
-            await session.flush()
+            if current_user.balance >= order_data.amount_usdt:
+                current_user.balance = current_user.balance - order_data.amount_usdt
+                is_paid_from_balance = True
+                await session.flush()
+
+        client_details = order_data.client_details
+        if is_paid_from_balance:
+            client_details = f"[BALANCE_PAID]{client_details}"
 
         order = await order_service.create_order_web(
             user_id=current_user.id,
             order_type=order_data.order_type,
             amount_usdt=order_data.amount_usdt,
             rate=rate,
-            client_details=order_data.client_details,
+            client_details=client_details,
         )
 
         await session.commit()

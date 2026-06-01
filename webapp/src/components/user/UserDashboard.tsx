@@ -281,11 +281,7 @@ export default function UserDashboard({ onOrderCreated }: UserDashboardProps) {
       return;
     }
 
-    if (exchangeType === "sell" && user && user.balance < usdtNum) {
-      setSubmitError(`Недостаточно USDT на вашем балансе. Доступно: ${user.balance} USDT`);
-      triggerHaptic.error(addHapticLog);
-      return;
-    }
+
 
     setIsSubmitting(true);
     triggerHaptic.light(addHapticLog);
@@ -714,9 +710,26 @@ export default function UserDashboard({ onOrderCreated }: UserDashboardProps) {
 
                     <div className="bg-[#161B26] border border-emerald-500/10 p-4 rounded-3xl space-y-3">
                       
-                      <div>
+                      <div className="flex justify-between items-center flex-wrap gap-1.5">
                         <span className="text-[10px] text-[#8E9AA7] uppercase font-bold block">Депозитный USDT-кошелек обменника:</span>
-                        <p className="text-[10px] text-[#8E9AA7] mt-0.5 leading-tight">Для проведения сделки USDT будут списаны с вашего баланса Mini App.</p>
+                        {user && user.balance >= (parseFloat(usdtAmount) || 0) ? (
+                          <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                            🟢 Списание с баланса (Достаточно средств)
+                          </span>
+                        ) : (
+                          <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-bold animate-pulse">
+                            🟡 Внешний перевод (Недостаточно баланса)
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] text-[#8E9AA7] leading-tight">
+                          {user && user.balance >= (parseFloat(usdtAmount) || 0) 
+                            ? `Для проведения сделки ${(parseFloat(usdtAmount) || 0).toFixed(2)} USDT будут списаны с вашего баланса Mini App.`
+                            : `Недостаточно средств на балансе Mini App. Пожалуйста, переведите ${(parseFloat(usdtAmount) || 0).toFixed(2)} USDT на депозитный кошелек обменника ниже или по QR-коду.`
+                          }
+                        </p>
                       </div>
 
                       <div className="flex flex-col items-center justify-center p-1 bg-[#121620] border border-gray-850 rounded-2xl w-24 h-24 mx-auto shadow-inner">
