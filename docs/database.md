@@ -267,6 +267,47 @@ role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), ...)
 
 ---
 
+### support_tickets — Тикеты техподдержки
+
+Хранит созданные пользователями тикеты для связи с операторами техподдержки.
+
+| Столбец | Тип | Ограничения | Описание |
+|---------|-----|-------------|----------|
+| `id` | `SERIAL` | `PRIMARY KEY` | ID тикета |
+| `user_id` | `INTEGER` | `FK → users.id NOT NULL` | Инициатор тикета (клиент) |
+| `subject` | `VARCHAR(255)` | `DEFAULT 'General'` | Тема обращения |
+| `order_id` | `INTEGER` | `FK → orders.id NULL` | Связанный ID сделки обмена (если есть) |
+| `status` | `VARCHAR(50)` | `DEFAULT 'open'` | Статус тикета (`open`, `closed`) |
+| `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Время создания тикета |
+| `updated_at` | `TIMESTAMP` | `DEFAULT NOW()` | Время последнего ответа / изменения статуса |
+
+**Связи:**
+- `user` → `User` (многие-к-одному)
+- `order` → `Order` (многие-к-одному)
+- `messages` → `SupportMessage.ticket_id` (один-ко-многим, каскадное удаление)
+
+---
+
+### support_messages — Сообщения поддержки
+
+Хранит всю историю переписки по каждому тикету техподдержки.
+
+| Столбец | Тип | Ограничения | Описание |
+|---------|-----|-------------|----------|
+| `id` | `SERIAL` | `PRIMARY KEY` | ID сообщения |
+| `ticket_id` | `INTEGER` | `FK → support_tickets.id NOT NULL` | ID тикета |
+| `sender_id` | `INTEGER` | `FK → users.id NOT NULL` | ID автора сообщения |
+| `sender_name` | `VARCHAR(255)` | `NOT NULL` | Имя отправителя |
+| `sender_role` | `VARCHAR(50)` | `NOT NULL` | Роль автора на момент отправки (из `user_role`) |
+| `text` | `VARCHAR(4000)` | `NOT NULL` | Текст сообщения |
+| `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Время отправки |
+
+**Связи:**
+- `ticket` → `SupportTicket` (многие-к-одному)
+- `sender` → `User` (многие-к-одному)
+
+---
+
 ## Диаграмма связей
 
 ```

@@ -1,5 +1,6 @@
 """Users router for API."""
 
+import asyncio
 import json
 import logging
 
@@ -20,10 +21,47 @@ from app.services.encryption import EncryptionService
 from app.services.order_service import OrderService
 from app.services.user_service import UserService
 
+
+async def notify_user_block_bg(telegram_id: int, is_blocked: bool) -> None:
+    """Sends background Telegram notification when a user is blocked/unblocked."""
+    try:
+        from aiogram import Bot
+        text = "🚫 Вы заблокированы в боте обмена USDT." if is_blocked else "✅ Вы разблокированы в боте обмена USDT."
+        async with Bot(token=settings.BOT_TOKEN) as bot:
+            await bot.send_message(chat_id=telegram_id, text=text)
+    except Exception as e:
+        logger.error(f"Failed to send block/unblock alert to telegram in bg: {e}")
+
+
+async def notify_user_role_bg(telegram_id: int, old_role: str, new_role: str) -> None:
+    """Sends background Telegram notification when user role changes."""
+    try:
+        from aiogram import Bot
+        role_names = {
+            "super_admin": "Суперадминистратор",
+            "admin": "Администратор",
+            "operator": "Оператор",
+            "client": "Клиент"
+        }
+
+        if new_role == "client":
+            old_role_name = role_names.get(old_role, "Специальные")
+            text = f"👤 С вас сняты полномочия {old_role_name} в боте обмена USDT. Ваша роль изменена на Клиент."
+        else:
+            new_role_name = role_names.get(new_role, "Специальные")
+            text = f"👤 Вы назначены {new_role_name} в боте обмена USDT."
+
+        async with Bot(token=settings.BOT_TOKEN) as bot:
+            await bot.send_message(chat_id=telegram_id, text=text)
+    except Exception as e:
+        logger.error(f"Failed to send role assignment alert to telegram in bg: {e}")
+
+
 logger = logging.getLogger(__name__)
 router = web.RouteTableDef()
 
 
+@router.get("/api/v1/admin/users")
 @router.get("/api/v1/users")
 async def list_users(request: web.Request) -> web.Response:
     await require_min_role(RoleEnum.admin)(request)
@@ -31,11 +69,12 @@ async def list_users(request: web.Request) -> web.Response:
     offset = int(request.query.get("offset", "0"))
     limit = int(request.query.get("limit", "20"))
     limit = min(limit, 100)
+    search = request.query.get("search")
 
     async with async_session_maker() as session:
         user_repo = UserRepository(session)
-        users = await user_repo.get_all(offset=offset, limit=limit)
-        total = await user_repo.count()
+        users = await user_repo.get_all_filtered(search=search, offset=offset, limit=limit)
+        total = await user_repo.count_filtered(search=search)
 
         response = UserListResponse(
             items=[UserResponse.model_validate(u) for u in users],
@@ -132,6 +171,7 @@ async def admin_update_user(request: web.Request) -> web.Response:
             user.full_name = update_data.full_name
 
         await session.flush()
+        await session.commit()
 
         await audit_repo.log(
             user_id=current_user.id,
@@ -169,10 +209,25 @@ async def update_user_role(request: web.Request) -> web.Response:
 
     async with async_session_maker() as session:
         user_service = UserService(session)
+        user_obj = await user_service.user_repo.get_by_id(user_id)
+        if user_obj is None:
+            raise NotFoundError("User not found")
+        old_role = user_obj.role.value
+
         user = await user_service.set_role(user_id, role_data.role, current_user.id)
 
         if user is None:
             raise NotFoundError("User not found")
+
+        await session.commit()
+
+        asyncio.create_task(
+            notify_user_role_bg(
+                telegram_id=user.telegram_id,
+                old_role=old_role,
+                new_role=role_data.role.value,
+            )
+        )
 
         logger.info(f"User {current_user.telegram_id} set role {role_data.role.value} for user {user.telegram_id}")
 
@@ -199,6 +254,9 @@ async def block_user(request: web.Request) -> web.Response:
 
         user.is_blocked = True
         await session.flush()
+        await session.commit()
+
+        asyncio.create_task(notify_user_block_bg(user.telegram_id, True))
 
         await audit_repo.log(
             user_id=current_user.id,
@@ -228,6 +286,9 @@ async def unblock_user(request: web.Request) -> web.Response:
 
         user.is_blocked = False
         await session.flush()
+        await session.commit()
+
+        asyncio.create_task(notify_user_block_bg(user.telegram_id, False))
 
         await audit_repo.log(
             user_id=current_user.id,

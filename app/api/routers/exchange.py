@@ -122,6 +122,8 @@ async def update_exchange_settings(request: web.Request) -> web.Response:
                 if chat.chat_id not in new_ids:
                     await notification_repo.remove_chat(chat.chat_id)
 
+        await session.commit()
+
         buy_rate = await rate_service.get_current_rate(RateTypeEnum.buy)
         sell_rate = await rate_service.get_current_rate(RateTypeEnum.sell)
         buy_enabled = await settings_service.is_buy_enabled()

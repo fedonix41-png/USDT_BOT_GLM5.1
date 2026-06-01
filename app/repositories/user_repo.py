@@ -16,6 +16,34 @@ class UserRepository(BaseRepository[User]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_all_filtered(self, search: str | None = None, offset: int = 0, limit: int = 100) -> list[User]:
+        stmt = select(User)
+        if search:
+            from sqlalchemy import or_
+            search_cond = [User.username.ilike(f"%{search}%")]
+            try:
+                tg_id = int(search)
+                search_cond.append(User.telegram_id == tg_id)
+            except ValueError:
+                pass
+            stmt = stmt.where(or_(*search_cond))
+        stmt = stmt.offset(offset).limit(limit)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_filtered(self, search: str | None = None) -> int:
+        stmt = select(User)
+        if search:
+            from sqlalchemy import or_
+            search_cond = [User.username.ilike(f"%{search}%")]
+            try:
+                tg_id = int(search)
+                search_cond.append(User.telegram_id == tg_id)
+            except ValueError:
+                pass
+            stmt = stmt.where(or_(*search_cond))
+        return await self.count(stmt)
+
     async def get_or_create(
         self, telegram_id: int, username: str | None, full_name: str | None, default_role: RoleEnum = RoleEnum.client
     ) -> User:

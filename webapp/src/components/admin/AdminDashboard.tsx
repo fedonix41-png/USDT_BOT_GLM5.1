@@ -128,13 +128,20 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadAdminStats();
-    if (adminTab === "moderation") {
-      loadModerationOrders();
-    }
     if (adminTab === "crm") {
       loadCrmUsers();
     }
   }, [adminTab, searchQuery]);
+
+  useEffect(() => {
+    if (adminTab === "moderation") {
+      loadModerationOrders();
+      const interval = setInterval(() => {
+        loadModerationOrders();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [adminTab]);
 
   const loadAdminTickets = async () => {
     try {

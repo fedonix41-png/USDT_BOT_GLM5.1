@@ -154,7 +154,7 @@ export const api = {
     if (data.notificationChats !== undefined) payload.notification_chats = data.notificationChats;
 
     return request("/api/v1/exchange/settings", {
-      method: "PUT",
+      method: "PATCH",
       body: JSON.stringify(payload),
     }).then((raw) => mapSettingsResponse(raw as Record<string, unknown>));
   },

@@ -1,5 +1,6 @@
 """Orders router for API."""
 
+import asyncio
 import json
 import logging
 from datetime import datetime
@@ -9,7 +10,7 @@ from aiohttp import web
 from pydantic import ValidationError
 
 from app.api.deps import get_current_user, require_min_role
-from app.api.exceptions import ForbiddenError, NotFoundError
+from app.api.exceptions import NotFoundError
 from app.api.exceptions import ValidationError as APIValidationError
 from app.api.schemas.order import (
     OrderCreateRequest,
@@ -26,6 +27,75 @@ from app.services.encryption import EncryptionService
 from app.services.order_service import OrderService
 from app.services.rate_service import RateService
 from app.services.settings_service import SettingsService
+
+
+async def notify_order_status_bg(
+    order_id: int, operator_id: int, status: str, rejection_reason: str | None = None
+) -> None:
+    """Sends background Telegram notifications for order status updates."""
+    try:
+        from aiogram import Bot
+
+        from app.database.models.order import OrderStatusEnum
+        from app.repositories.user_repo import UserRepository
+        from app.services.encryption import EncryptionService
+        from app.services.notification_service import NotificationService
+        from app.services.order_service import OrderService
+
+        async with async_session_maker() as session:
+            order_service = OrderService(session, EncryptionService(settings.ENCRYPTION_KEY))
+            user_repo = UserRepository(session)
+
+            order = await order_service.get_order_by_id(order_id)
+            operator = await user_repo.get_by_id(operator_id)
+
+            if not order or not operator:
+                logger.error(
+                    f"Bg notification failed: order {order_id} or operator {operator_id} not found"
+                )
+                return
+
+            client_user = await user_repo.get_by_id(order.user_id)
+            recipient_chat_id = order.chat_id or (client_user.telegram_id if client_user else None)
+
+            async with Bot(token=settings.BOT_TOKEN) as bot:
+                if status == OrderStatusEnum.completed.value:
+                    if recipient_chat_id:
+                        order_type_str = "покупку" if order.order_type.value == "buy" else "продажу"
+                        client_text = (
+                            f"✅ Ваша заявка #{order_id} на {order_type_str} {order.amount_usdt} USDT подтверждена!\n"
+                            f"К оплате: {order.total_fiat} RUB\n"
+                            f"Оператор: @{operator.username or 'N/A'}\n"
+                            f"Спасибо за обращение!"
+                        )
+                        try:
+                            await bot.send_message(chat_id=recipient_chat_id, text=client_text)
+                        except Exception as e:
+                            logger.error(f"Failed to send direct message to client in bg: {e}")
+
+                    try:
+                        notif_service = NotificationService(session)
+                        await notif_service.notify_order_completed(bot, order, operator)
+                    except Exception as e:
+                        logger.error(f"Failed to send operators alerts in bg: {e}")
+
+                elif status == OrderStatusEnum.cancelled.value:
+                    if recipient_chat_id:
+                        reason_str = (
+                            f"\nПричина: {rejection_reason}" if rejection_reason else ""
+                        )
+                        client_text = (
+                            f"❌ Ваша заявка #{order_id} на "
+                            f"{'покупку' if order.order_type.value == 'buy' else 'продажу'} "
+                            f"{order.amount_usdt} USDT отменена администратором.{reason_str}"
+                        )
+                        try:
+                            await bot.send_message(chat_id=recipient_chat_id, text=client_text)
+                        except Exception as e:
+                            logger.error(f"Failed to send cancellation message to client in bg: {e}")
+    except Exception as e:
+        logger.error(f"Unhandled exception in background notification: {e}")
+
 
 logger = logging.getLogger(__name__)
 router = web.RouteTableDef()
@@ -105,6 +175,7 @@ async def create_order(request: web.Request) -> web.Response:
 
         # Notify operators in Telegram notification chats
         from aiogram import Bot
+
         from app.services.notification_service import NotificationService
         try:
             async with Bot(token=settings.BOT_TOKEN) as bot:
@@ -226,6 +297,15 @@ async def update_order_status(request: web.Request) -> web.Response:
 
         logger.info(f"User {current_user.telegram_id} set status {status_data.status.value} for order {order_id}")
 
+        asyncio.create_task(
+            notify_order_status_bg(
+                order_id=order_id,
+                operator_id=current_user.id,
+                status=status_data.status.value,
+                rejection_reason=status_data.rejection_reason,
+            )
+        )
+
         return web.json_response(OrderResponse.model_validate(order).model_dump(mode='json'))
 
 
@@ -248,6 +328,7 @@ async def complain_order(request: web.Request) -> web.Response:
 
         # Notify operators in Telegram notification chats
         from aiogram import Bot
+
         from app.services.notification_service import NotificationService
         try:
             async with Bot(token=settings.BOT_TOKEN) as bot:
