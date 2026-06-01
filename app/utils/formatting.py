@@ -26,7 +26,7 @@ def format_order_message(order: Order, user: User | None = None, payment_link: s
     return "\n".join(parts)
 
 
-def format_order_for_operator(order: Order, user: User | None = None) -> str:
+def format_order_for_operator(order: Order, user: User | None = None, decrypted_details: str = "") -> str:
     """Format an order for the operator's active orders list."""
     type_emoji = "🟢 Покупка" if order.order_type == OrderTypeEnum.buy else "🔴 Продажа"
     if user and user.username:
@@ -37,12 +37,15 @@ def format_order_for_operator(order: Order, user: User | None = None) -> str:
         username = "N/A"
     tg_id = user.telegram_id if user else "N/A"
 
+    details_line = f"Реквизиты/Кошелек: {decrypted_details}\n" if decrypted_details else ""
+
     return (
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"Заявка #{order.id} | {type_emoji}\n"
         f"Клиент: {username} (ID: {tg_id})\n"
         f"Сумма: {order.amount_usdt} USDT\n"
         f"К оплате: {order.total_fiat} RUB\n"
+        f"{details_line}"
         f"Дата: {order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'N/A'}\n"
         f"━━━━━━━━━━━━━━━━━━━━"
     )

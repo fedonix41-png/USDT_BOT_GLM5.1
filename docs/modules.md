@@ -57,7 +57,8 @@ app/
 │   │   ├── exchange.py  # GET/PATCH /api/v1/exchange/settings (TelePay — combined settings endpoint)
 │   │   ├── rates.py    # GET/POST /api/v1/rates
 │   │   ├── settings.py # GET/PATCH /api/v1/settings
-│   │   └── statistics.py # GET /api/v1/statistics
+│   │   ├── statistics.py # GET /api/v1/statistics
+│   │   └── support.py  # GET/POST /api/v1/support/tickets (TelePay support bridge)
 │   └── schemas/
 │       ├── auth.py     # LoginRequest, TokenResponse, RefreshRequest
 │       ├── user.py     # UserResponse, UserListResponse, RoleUpdateRequest

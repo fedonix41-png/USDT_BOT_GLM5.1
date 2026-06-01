@@ -17,7 +17,7 @@ from app.database.models.rate import RateTypeEnum
 from app.database.models.user import RoleEnum, User
 from app.fsm.links_states import ChangeLinksStates
 from app.fsm.rate_states import ChangeBuyRateStates, ChangeSellRateStates
-from app.fsm.role_states import AssignAdminStates, AssignOperatorStates, BanUserStates, UnbanUserStates
+from app.fsm.role_states import AssignAdminStates, AssignOperatorStates, BanUserStates, UnbanUserStates, DemoteOperatorStates, DemoteAdminStates
 from app.keyboards.cancel_kb import cancel_keyboard
 from app.keyboards.management_kb import management_keyboard
 from app.services.encryption import EncryptionService
@@ -214,6 +214,23 @@ async def start_assign_operator(callback: CallbackQuery, state: FSMContext, user
     await callback.answer()
 
 
+@router.callback_query(F.data == "mgmt:demote_operator")
+async def start_demote_operator(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
+    """Start demote operator FSM from management panel."""
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
+        await callback.answer("У вас нет прав.", show_alert=True)
+        return
+    await reset_fsm_attempts(state)
+    await state.set_state(DemoteOperatorStates.waiting_target_user)
+    await callback.message.edit_text("⚙️ Панель закрыта.")
+    await callback.message.answer(
+        "Введите Telegram ID Оператора, с которого хотите снять права:",
+        reply_markup=cancel_keyboard(),
+    )
+    await callback.answer()
+
+
 @router.callback_query(F.data == "mgmt:assign_admin")
 async def start_assign_admin(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start assign admin FSM from management panel (super_admin only)."""
@@ -227,6 +244,24 @@ async def start_assign_admin(callback: CallbackQuery, state: FSMContext, user: U
     await callback.message.edit_text("⚙️ Панель закрыта.")
     await callback.message.answer(
         "Введите Telegram ID пользователя или перешлите его контакт:",
+        reply_markup=cancel_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "mgmt:demote_admin")
+async def start_demote_admin(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
+    """Start demote admin FSM from management panel (super_admin only)."""
+    if user is None or user.role != RoleEnum.super_admin:
+        logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=super_admin")
+        await callback.answer("У вас нет прав для этого действия.", show_alert=True)
+        return
+
+    await reset_fsm_attempts(state)
+    await state.set_state(DemoteAdminStates.waiting_target_user)
+    await callback.message.edit_text("⚙️ Панель закрыта.")
+    await callback.message.answer(
+        "Введите Telegram ID Администратора, с которого хотите снять права:",
         reply_markup=cancel_keyboard(),
     )
     await callback.answer()

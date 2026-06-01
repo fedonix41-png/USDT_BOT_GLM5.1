@@ -15,11 +15,12 @@ from app.api.middleware import (
     login_rate_limit_middleware,
     rate_limit_middleware,
 )
-from app.api.routers import auth, exchange, orders, rates, settings, statistics, users
+from app.api.routers import auth, exchange, orders, rates, settings, statistics, users, support
 from app.config import settings as app_settings
 from app.utils.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
+router = web.RouteTableDef()
 
 
 def create_api_app() -> web.Application:
@@ -44,6 +45,7 @@ def create_api_app() -> web.Application:
     app.router.add_routes(settings.router)
     app.router.add_routes(statistics.router)
     app.router.add_routes(exchange.router)
+    app.router.add_routes(support.router)
     
     from app.api.routers import telegram
     app.router.add_routes(telegram.router)

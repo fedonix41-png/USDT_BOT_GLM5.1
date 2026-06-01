@@ -27,12 +27,18 @@ def management_keyboard(
         [InlineKeyboardButton(text=bot_btn, callback_data="mgmt:toggle_bot")],
         [
             InlineKeyboardButton(text="➕ Чаты", callback_data="mgmt:chats"),
+        ],
+        [
             InlineKeyboardButton(text="👤 Оператор", callback_data="mgmt:assign_operator"),
+            InlineKeyboardButton(text="👤⬇️ Снять оператора", callback_data="mgmt:demote_operator"),
         ],
     ]
 
     if is_super_admin:
-        kb.append([InlineKeyboardButton(text="👑 Админ", callback_data="mgmt:assign_admin")])
+        kb.append([
+            InlineKeyboardButton(text="👑 Админ", callback_data="mgmt:assign_admin"),
+            InlineKeyboardButton(text="👑⬇️ Снять админа", callback_data="mgmt:demote_admin"),
+        ])
 
     kb.append([
         InlineKeyboardButton(text="🚫 Забанить", callback_data="mgmt:ban_user"),

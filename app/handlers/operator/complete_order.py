@@ -50,7 +50,8 @@ async def complete_order_callback(callback: CallbackQuery, session: AsyncSession
         f"✅ Заявка #{order_id} завершена оператором @{operator.username or 'N/A'}."
     )
 
-    if order.chat_id and order.message_id:
+    recipient_chat_id = order.chat_id or (order.user.telegram_id if order.user else None)
+    if recipient_chat_id:
         order_type_str = "покупку" if order.order_type.value == "buy" else "продажу"
         client_text = (
             f"✅ Ваша заявка #{order_id} на {order_type_str} {order.amount_usdt} USDT подтверждена!\n"
@@ -59,7 +60,7 @@ async def complete_order_callback(callback: CallbackQuery, session: AsyncSession
             f"Спасибо за обращение!"
         )
         try:
-            await callback.bot.send_message(chat_id=order.chat_id, text=client_text)
+            await callback.bot.send_message(chat_id=recipient_chat_id, text=client_text)
         except Exception as e:
             logger.error(f"Failed to notify client about completed order #{order_id}: {e}")
 
@@ -98,10 +99,11 @@ async def admin_cancel_order_callback(callback: CallbackQuery, session: AsyncSes
 
     await callback.message.edit_text(f"❌ Заявка #{order_id} отменена администратором.")
 
-    if order.chat_id:
+    recipient_chat_id = order.chat_id or (order.user.telegram_id if order.user else None)
+    if recipient_chat_id:
         try:
             await callback.bot.send_message(
-                chat_id=order.chat_id,
+                chat_id=recipient_chat_id,
                 text=f"❌ Ваша заявка #{order_id} отменена администратором.",
             )
         except Exception as e:

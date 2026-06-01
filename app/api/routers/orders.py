@@ -91,10 +91,22 @@ async def create_order(request: web.Request) -> web.Response:
             client_details=order_data.client_details,
         )
 
+        await session.commit()
+
         logger.info(
             f"User {current_user.telegram_id} created {order_data.order_type.value} order "
             f"for {order_data.amount_usdt} USDT"
         )
+
+        # Notify operators in Telegram notification chats
+        from aiogram import Bot
+        from app.services.notification_service import NotificationService
+        try:
+            async with Bot(token=settings.BOT_TOKEN) as bot:
+                notif_service = NotificationService(session)
+                await notif_service.notify_new_order(bot, order, current_user)
+        except Exception as e:
+            logger.error(f"Failed to send Telegram notification for web order #{order.id}: {e}")
 
         return web.json_response(
             OrderResponse.model_validate(order).model_dump(mode='json'),
@@ -181,6 +193,8 @@ async def update_order_status(request: web.Request) -> web.Response:
                 order.rejection_reason = status_data.rejection_reason
                 await session.flush()
 
+            await session.commit()
+
             logger.info(f"Client {current_user.telegram_id} cancelled order {order_id}")
 
             return web.json_response(OrderResponse.model_validate(order).model_dump(mode='json'))
@@ -203,6 +217,8 @@ async def update_order_status(request: web.Request) -> web.Response:
         if order is None:
             raise NotFoundError("Order not found or already processed")
 
+        await session.commit()
+
         logger.info(f"User {current_user.telegram_id} set status {status_data.status.value} for order {order_id}")
 
         return web.json_response(OrderResponse.model_validate(order).model_dump(mode='json'))
@@ -221,6 +237,18 @@ async def complain_order(request: web.Request) -> web.Response:
         if order is None:
             raise NotFoundError("Order not found or not owned by you")
 
+        await session.commit()
+
         logger.info(f"User {current_user.telegram_id} flagged order {order_id} as broken")
+
+        # Notify operators in Telegram notification chats
+        from aiogram import Bot
+        from app.services.notification_service import NotificationService
+        try:
+            async with Bot(token=settings.BOT_TOKEN) as bot:
+                notif_service = NotificationService(session)
+                await notif_service.notify_broken_link(bot, order, current_user)
+        except Exception as e:
+            logger.error(f"Failed to send broken link notification for order #{order.id}: {e}")
 
         return web.json_response(OrderResponse.model_validate(order).model_dump(mode='json'))

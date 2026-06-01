@@ -17,3 +17,12 @@ class BanUserStates(StatesGroup):
 
 class UnbanUserStates(StatesGroup):
     waiting_target_user = State()
+
+
+class DemoteOperatorStates(StatesGroup):
+    waiting_target_user = State()
+
+
+class DemoteAdminStates(StatesGroup):
+    waiting_target_user = State()
+

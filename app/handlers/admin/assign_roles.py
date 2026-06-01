@@ -11,7 +11,7 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.user import RoleEnum, User
-from app.fsm.role_states import AssignAdminStates, AssignOperatorStates
+from app.fsm.role_states import AssignAdminStates, AssignOperatorStates, DemoteOperatorStates, DemoteAdminStates
 from app.keyboards.cancel_kb import get_main_keyboard
 from app.services.notification_service import NotificationService
 from app.services.user_service import UserService
@@ -143,3 +143,139 @@ async def process_assign_admin(
     await message.answer(f"✅ Пользователь {username_str} теперь Админ.", reply_markup=kb)
     await state.clear()
     logger.info(f"User {target_telegram_id} assigned as Admin by SuperAdmin {message.from_user.id}")
+
+
+@router.message(DemoteOperatorStates.waiting_target_user)
+async def process_demote_operator(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    user: User | None,
+) -> None:
+    """Process demoting operator role back to client."""
+    try:
+        target_telegram_id = int(message.text.strip())
+    except ValueError:
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Введите корректный Telegram ID (число)."
+        )
+        return
+
+    user_service = UserService(session)
+    target_user = await user_service.get_by_telegram_id(target_telegram_id)
+
+    if target_user is None:
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Пользователь не найден. Он должен сначала запустить бота (/start)."
+        )
+        return
+
+    if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
+        logger.warning(f"Unauthorized access attempt: user_id={message.from_user.id}, command=demote_operator, required_role=admin+")
+        await message.answer("У вас нет прав для этого действия.")
+        await state.clear()
+        return
+
+    if target_user.role != RoleEnum.operator:
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Пользователь не является Оператором."
+        )
+        return
+
+    updated_user = await user_service.set_role(target_user.id, RoleEnum.client, user.id)
+    if updated_user is None:
+        await message.answer("Ошибка изменения роли.")
+        await state.clear()
+        return
+
+    try:
+        await message.bot.send_message(
+            chat_id=target_telegram_id,
+            text="👤 С вас сняты полномочия Оператора бота обмена USDT.",
+        )
+    except Exception as e:
+        logger.error(f"Failed to notify user {target_telegram_id} about operator demotion: {e}")
+
+    notif_service = NotificationService(session)
+    await notif_service.notify_role_demoted(message.bot, updated_user, "Оператор")
+
+    username_str = f"@{updated_user.username}" if updated_user.username else f"ID: {target_telegram_id}"
+    flags = await get_settings_flags(session)
+    kb = get_main_keyboard(
+        role=user.role,
+        buy_enabled=flags["buy_enabled"],
+        sell_enabled=flags["sell_enabled"],
+        bot_enabled=flags["bot_enabled"],
+        is_super_admin=user.role == RoleEnum.super_admin,
+    )
+    await message.answer(f"✅ У пользователя {username_str} снята роль Оператора.", reply_markup=kb)
+    await state.clear()
+    logger.info(f"User {target_telegram_id} demoted from Operator to Client by {message.from_user.id}")
+
+
+@router.message(DemoteAdminStates.waiting_target_user)
+async def process_demote_admin(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    user: User | None,
+) -> None:
+    """Process demoting admin role back to client."""
+    try:
+        target_telegram_id = int(message.text.strip())
+    except ValueError:
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Введите корректный Telegram ID (число)."
+        )
+        return
+
+    user_service = UserService(session)
+    if user is None or user.role != RoleEnum.super_admin:
+        logger.warning(f"Unauthorized access attempt: user_id={message.from_user.id}, command=demote_admin, required_role=super_admin")
+        await message.answer("У вас нет прав для этого действия.")
+        await state.clear()
+        return
+
+    target_user = await user_service.get_by_telegram_id(target_telegram_id)
+    if target_user is None:
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Пользователь не найден. Он должен сначала запустить бота (/start)."
+        )
+        return
+
+    if target_user.role != RoleEnum.admin:
+        should_continue, _ = await check_fsm_attempts(
+            state, message, "Пользователь не является Администратором."
+        )
+        return
+
+    updated_user = await user_service.set_role(target_user.id, RoleEnum.client, user.id)
+    if updated_user is None:
+        await message.answer("Ошибка изменения роли.")
+        await state.clear()
+        return
+
+    try:
+        await message.bot.send_message(
+            chat_id=target_telegram_id,
+            text="👑 С вас сняты полномочия Администратора бота обмена USDT.",
+        )
+    except Exception as e:
+        logger.error(f"Failed to notify user {target_telegram_id} about admin demotion: {e}")
+
+    notif_service = NotificationService(session)
+    await notif_service.notify_role_demoted(message.bot, updated_user, "Администратор")
+
+    username_str = f"@{updated_user.username}" if updated_user.username else f"ID: {target_telegram_id}"
+    flags = await get_settings_flags(session)
+    kb = get_main_keyboard(
+        role=user.role,
+        buy_enabled=flags["buy_enabled"],
+        sell_enabled=flags["sell_enabled"],
+        bot_enabled=flags["bot_enabled"],
+        is_super_admin=True,
+    )
+    await message.answer(f"✅ У пользователя {username_str} снята роль Администратора.", reply_markup=kb)
+    await state.clear()
+    logger.info(f"User {target_telegram_id} demoted from Admin to Client by SuperAdmin {message.from_user.id}")
+

@@ -35,9 +35,20 @@ async def show_active_orders(message: Message, session: AsyncSession, user: User
 
     orders = await order_service.get_active_orders(offset=0, limit=app_settings.ORDERS_PER_PAGE)
 
+    from app.services.encryption import EncryptionService
+    encryption = EncryptionService(app_settings.ENCRYPTION_KEY)
+
     for order in orders:
         user = await user_service.get_by_telegram_id(order.user.telegram_id if order.user else 0)
-        text = format_order_for_operator(order, user)
+        
+        decrypted = ""
+        if order.payment_link_snapshot:
+            try:
+                decrypted = encryption.decrypt(order.payment_link_snapshot)
+            except Exception:
+                pass
+
+        text = format_order_for_operator(order, user, decrypted)
         kb = order_operator_kb(order.id)
         await message.answer(text, reply_markup=kb)
 
@@ -62,9 +73,20 @@ async def paginate_orders(callback: CallbackQuery, session: AsyncSession, user: 
     total = await order_service.count_active_orders()
     orders = await order_service.get_active_orders(offset=offset, limit=app_settings.ORDERS_PER_PAGE)
 
+    from app.services.encryption import EncryptionService
+    encryption = EncryptionService(app_settings.ENCRYPTION_KEY)
+
     for order in orders:
         user = await user_service.get_by_telegram_id(order.user.telegram_id if order.user else 0)
-        text = format_order_for_operator(order, user)
+        
+        decrypted = ""
+        if order.payment_link_snapshot:
+            try:
+                decrypted = encryption.decrypt(order.payment_link_snapshot)
+            except Exception:
+                pass
+
+        text = format_order_for_operator(order, user, decrypted)
         kb = order_operator_kb(order.id)
         await callback.message.answer(text, reply_markup=kb)
 

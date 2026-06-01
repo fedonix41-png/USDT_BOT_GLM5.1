@@ -57,6 +57,16 @@ class TestUserService:
         updated = await svc.set_role(sample_user.id, RoleEnum.operator, admin_user.id)
         assert updated.role == RoleEnum.operator
 
+    async def test_demote_role(self, session, sample_user, admin_user):
+        svc = UserService(session)
+        # Assign operator role
+        updated = await svc.set_role(sample_user.id, RoleEnum.operator, admin_user.id)
+        assert updated.role == RoleEnum.operator
+
+        # Demote back to client
+        demoted = await svc.set_role(sample_user.id, RoleEnum.client, admin_user.id)
+        assert demoted.role == RoleEnum.client
+
     async def test_get_by_telegram_id(self, session, sample_user):
         svc = UserService(session)
         found = await svc.get_by_telegram_id(sample_user.telegram_id)

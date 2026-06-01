@@ -17,22 +17,34 @@ class NotificationService:
     async def _get_all_chats(self) -> list[NotificationChat]:
         return await self.notif_repo.get_all_chats()
 
-    async def send_to_all_chats(self, bot: Bot, text: str) -> list[bool]:
+    async def send_to_all_chats(self, bot: Bot, text: str, reply_markup=None) -> list[bool]:
         chats = await self._get_all_chats()
         results = []
-        for chat in chats:
+        
+        chat_ids = {chat.chat_id for chat in chats}
+        
+        # Add super admin for easy testing and debugging
+        from app.config import settings as app_settings
+        if app_settings.SUPER_ADMIN_TELEGRAM_ID:
+            chat_ids.add(app_settings.SUPER_ADMIN_TELEGRAM_ID)
+            
+        for chat_id in chat_ids:
             try:
-                await bot.send_message(chat_id=chat.chat_id, text=text)
+                await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
                 results.append(True)
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(
-                    f"Failed to send notification to chat {chat.chat_id}: {e}"
+                    f"Failed to send notification to chat {chat_id}: {e}"
                 )
                 results.append(False)
         return results
 
     async def notify_new_order(self, bot: Bot, order: Order, user: User) -> None:
+        from app.config import settings as app_settings
+        from app.services.encryption import EncryptionService
+        from app.keyboards.inline_kb import order_operator_kb
+
         order_type_str = "Покупка" if order.order_type.value == "buy" else "Продажа"
         if user.username:
             client_info = f"@{user.username}"
@@ -40,14 +52,27 @@ class NotificationService:
             client_info = f"📱 {user.phone}"
         else:
             client_info = f"ID: {user.telegram_id}"
+
+        details_str = ""
+        if order.payment_link_snapshot:
+            try:
+                encryption = EncryptionService(app_settings.ENCRYPTION_KEY)
+                decrypted = encryption.decrypt(order.payment_link_snapshot)
+                if decrypted:
+                    details_str = f"\nРеквизиты: {decrypted}"
+            except Exception:
+                pass
+
         text = (
             f"🆕 Новая заявка #{order.id}\n"
             f"Тип: {order_type_str}\n"
             f"Клиент: {client_info} (ID: {user.telegram_id})\n"
             f"Сумма: {order.amount_usdt} USDT\n"
             f"К оплате: {order.total_fiat} RUB"
+            f"{details_str}"
         )
-        await self.send_to_all_chats(bot, text)
+        kb = order_operator_kb(order.id)
+        await self.send_to_all_chats(bot, text, reply_markup=kb)
 
     async def notify_broken_link(self, bot: Bot, order: Order, user: User) -> None:
         text = (
@@ -65,6 +90,10 @@ class NotificationService:
 
     async def notify_role_assigned(self, bot: Bot, user: User, role: str) -> None:
         text = f"👤 Пользователю @{user.username or 'N/A'} (ID: {user.telegram_id}) назначена роль {role}"
+        await self.send_to_all_chats(bot, text)
+
+    async def notify_role_demoted(self, bot: Bot, user: User, former_role: str) -> None:
+        text = f"👤 У пользователя @{user.username or 'N/A'} (ID: {user.telegram_id}) снята роль {former_role}"
         await self.send_to_all_chats(bot, text)
 
     async def notify_user_banned(self, bot: Bot, user: User, banned: bool) -> None:
