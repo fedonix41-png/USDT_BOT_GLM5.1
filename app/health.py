@@ -70,11 +70,3 @@ def create_health_app() -> web.Application:
     return app
 
 
-async def start_health_server(port: int | None = None) -> None:
-    """Start health check HTTP server."""
-    app = create_health_app()
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", port or settings.HEALTH_PORT)
-    await site.start()
-    logger.info(f"Health check server started on port {port or settings.HEALTH_PORT}")

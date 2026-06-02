@@ -28,15 +28,16 @@ Telegram-бот для обмена USDT построен по модульно�
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Bot (Long Polling)
+### Bot (Webhook)
 
 | Параметр | Значение |
 |----------|----------|
 | **Назначение** | Основной компонент — Telegram-бот на базе Aiogram 3.x |
-| **Режим работы** | Long Polling (получение обновлений через `bot.get_updates()`) |
+| **Режим работы** | Webhook (получение обновлений через `aiohttp` на `/webhook`) |
 | **Функции** | Приём и обработка сообщений, FSM, отправка ответов, регистрация пользователей, маршрутизация по ролям |
 | **Запуск** | `uv run python -m app.main` |
 | **Зависимости** | PostgreSQL (через SQLAlchemy async), Redis (кеш флагов) |
+
 
 ### ARQ Worker
 
@@ -239,22 +240,24 @@ Request → logging → cors → rate_limit → login_rate_limit → auth → ip
 
 ## Паттерны взаимодействия
 
-### Long Polling (Bot ↔ Telegram)
+### Webhook (Bot ↔ Telegram)
 
 ```
-Telegram API  ←─ Long Polling ─→  Bot (Aiogram Dispatcher)
-                                       │
+Telegram API  ──POST──→   Webhook (aiohttp /webhook)
+                               │
+                               └── Aiogram Dispatcher
+                                        │
                                         ├── Middleware chain
                                         │   ├── ThrottlingMiddleware (outermost)
                                         │   ├── DBSessionMiddleware
                                         │   ├── UserMiddleware
                                         │   ├── BotStatusMiddleware
                                         │   └── RoleGuardMiddleware (innermost)
-                                       │
-                                       └── Handler
-                                           ├── Service (бизнес-логика)
-                                           ├── Repository (данные)
-                                           └── Bot API (ответ)
+                                        │
+                                        └── Handler
+                                            ├── Service (бизнес-логика)
+                                            ├── Repository (данные)
+                                            └── Bot API (ответ)
 ```
 
 ### ARQ Tasks (Bot → Redis → Worker)

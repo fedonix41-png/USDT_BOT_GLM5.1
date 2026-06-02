@@ -101,8 +101,9 @@ async def pick_calendar_date(
 
         end_date = selected_date.replace(hour=23, minute=59, second=59)
 
-        # Fetch statistics (encryption=None — get_statistics doesn't need it)
-        order_service = OrderService(session, None)  # type: ignore[arg-type]
+        from app.config import settings
+        from app.services.encryption import EncryptionService
+        order_service = OrderService(session, EncryptionService(settings.ENCRYPTION_KEY))
         stats = await order_service.get_statistics(start_date, end_date)
 
         text = format_statistics(stats, start_date, end_date)

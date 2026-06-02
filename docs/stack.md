@@ -10,7 +10,7 @@
 | Технология | Версия | Роль в проекте |
 |-----------|--------|----------------|
 | Python | 3.11+ | Основной язык. Async/await, type hints, богатая экосистема. |
-| Aiogram | 3.15.x | Telegram Bot фреймворк. Long Polling, FSM, middleware, роутинг, inline-клавиатуры. |
+| Aiogram | 3.15.x | Telegram Bot фреймворк. Webhook, FSM, middleware, роутинг, inline-клавиатуры. |
 | SQLAlchemy | 2.0.x | ORM и запросы. Асинхронный режим (`sqlalchemy[asyncio]`), typed mapping (`Mapped[]`). |
 | asyncpg | 0.30.x | Асинхронный драйвер PostgreSQL. Работает со SQLAlchemy async engine. |
 | PostgreSQL | 15-alpine | Реляционная СУБД. JSONB, индексы, транзакции. Образ alpine — минимальный размер. |
@@ -44,9 +44,9 @@
 
 ## Выбор технологий: обоснование
 
-### Long Polling вместо Webhook
+### Webhook вместо Long Polling
 
-Webhook требует публичного HTTPS-эндпоинта и веб-сервера (FastAPI). Long Polling проще на одном VPS, не требует открытия портов. Окно ~30 сек возможной потери обновлений при перезапуске — допустимо для MVP.
+Webhook используется для продакшен-окружения, так как обеспечивает более быструю и эффективную доставку обновлений от Telegram без необходимости постоянного опроса серверов (Long Polling). Реализовано через встроенный `aiohttp` сервер в `aiogram 3.x`. Для локальной разработки пробрасывается через Cloudflare Tunnel.
 
 ### AES-256-CBC для реквизитов
 

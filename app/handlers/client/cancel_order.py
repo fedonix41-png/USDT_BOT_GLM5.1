@@ -28,7 +28,10 @@ async def cancel_order_callback(callback: CallbackQuery, callback_data: OrderAct
         await callback.answer("Ошибка: пользователь не найден.", show_alert=True)
         return
 
-    order_service = OrderService(session, None)
+    from app.config import settings
+    from app.services.encryption import EncryptionService
+    encryption = EncryptionService(settings.ENCRYPTION_KEY)
+    order_service = OrderService(session, encryption)
     order = await order_service.get_order_by_id(order_id)
 
     if order is None:

@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     # Web App
     WEBAPP_URL: str = "https://example.com"
 
+    # Webhook
+    WEBHOOK_URL: str = ""
+    WEBHOOK_PATH: str = "/webhook"
+
     # ARQ
     ARQ_REDIS_URL: str = "redis://localhost:6379/1"
 

@@ -2,13 +2,15 @@
 
 import asyncio
 import logging
-import signal
 
+from aiohttp import web
 from aiogram import Bot, Dispatcher
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 from app.bot import setup_bot, setup_dispatcher, set_miniapp_menu_button
+from app.config import settings
 from app.database.engine import engine
-from app.health import start_health_server
+from app.health import create_health_app
 from app.utils.logging_config import setup_logging
 from app.utils.redis import close_redis
 
@@ -17,68 +19,53 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
-class GracefulShutdown:
-    _instance = None
-
-    def __init__(self):
-        self.shutdown_event = asyncio.Event()
-        self.bot: Bot | None = None
-        self.dp: Dispatcher | None = None
-
-    @classmethod
-    def get_instance(cls) -> "GracefulShutdown":
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
-
-    def setup_signal_handlers(self) -> None:
-        loop = asyncio.get_running_loop()
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            try:
-                loop.add_signal_handler(sig, lambda s=sig: self._signal_handler(s))
-            except NotImplementedError:
-                signal.signal(sig, lambda s, f: self._signal_handler(s))
-
-    def _signal_handler(self, sig: signal.Signals) -> None:
-        logger.info(f"Received signal {sig.name}, initiating graceful shutdown...")
-        self.shutdown_event.set()
-
-    async def shutdown(self) -> None:
-        if self.dp:
-            await self.dp.stop_polling()
-        if self.bot:
-            await self.bot.session.close()
-        await engine.dispose()
-        await close_redis()
-        logger.info("Graceful shutdown completed.")
-
-
-async def main() -> None:
-    shutdown = GracefulShutdown.get_instance()
-    shutdown.bot = setup_bot()
-    shutdown.dp = setup_dispatcher()
+async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
+    logger.info("Setting up webhook...")
+    base_url = settings.WEBHOOK_URL.rstrip("/")
+    webhook_url = f"{base_url}{settings.WEBHOOK_PATH}"
+    await bot.set_webhook(
+        url=webhook_url,
+        allowed_updates=dispatcher.resolve_used_update_types(),
+        drop_pending_updates=True
+    )
+    logger.info(f"Webhook set to {webhook_url}")
 
     # Set Mini App menu button
-    await set_miniapp_menu_button(shutdown.bot)
+    await set_miniapp_menu_button(bot)
 
-    shutdown.setup_signal_handlers()
 
-    await start_health_server()
-    logger.info("Starting USDT Exchange Bot (Long Polling)...")
+async def on_shutdown(bot: Bot, dispatcher: Dispatcher) -> None:
+    logger.info("Deleting webhook...")
+    await bot.delete_webhook(drop_pending_updates=True)
+    await bot.session.close()
+    await engine.dispose()
+    await close_redis()
+    logger.info("Graceful shutdown completed.")
 
-    try:
-        await shutdown.dp.start_polling(
-            shutdown.bot,
-            allowed_updates=shutdown.dp.resolve_used_update_types(),
-        )
-    except Exception as e:
-        logger.exception(f"Unexpected error during polling: {e}")
-    finally:
-        await shutdown.shutdown()
+
+def main() -> None:
+    bot = setup_bot()
+    dp = setup_dispatcher()
+
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
+
+    app = create_health_app()
+
+    webhook_requests_handler = SimpleRequestHandler(
+        dispatcher=dp,
+        bot=bot,
+    )
+    webhook_requests_handler.register(app, path=settings.WEBHOOK_PATH)
+
+    setup_application(app, dp, bot=bot)
+
+    logger.info(f"Starting USDT Exchange Bot (Webhook on port {settings.HEALTH_PORT})...")
+    web.run_app(app, host="0.0.0.0", port=settings.HEALTH_PORT)
 
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        main()
     except KeyboardInterrupt:
         logger.info("Bot stopped by user.")

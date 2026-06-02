@@ -83,7 +83,9 @@ async def admin_cancel_order_callback(callback: CallbackQuery, callback_data: Or
 
     order_id = callback_data.order_id
 
-    order_service = OrderService(session, None)
+    from app.config import settings
+    encryption = EncryptionService(settings.ENCRYPTION_KEY)
+    order_service = OrderService(session, encryption)
     order = await order_service.get_order_by_id(order_id)
 
     if order is None:

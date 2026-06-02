@@ -25,7 +25,9 @@ async def show_active_orders(message: Message, session: AsyncSession, user: User
     if user is None or user.role not in (RoleEnum.operator, RoleEnum.admin, RoleEnum.super_admin):
         logger.warning(f"Unauthorized access attempt: user_id={message.from_user.id}, command=Заявки, required_role=operator+")
         return
-    order_service = OrderService(session, None)
+    from app.services.encryption import EncryptionService
+    encryption = EncryptionService(app_settings.ENCRYPTION_KEY)
+    order_service = OrderService(session, encryption)
     user_service = UserService(session)
 
     total = await order_service.count_active_orders()
@@ -34,9 +36,6 @@ async def show_active_orders(message: Message, session: AsyncSession, user: User
         return
 
     orders = await order_service.get_active_orders(offset=0, limit=app_settings.ORDERS_PER_PAGE)
-
-    from app.services.encryption import EncryptionService
-    encryption = EncryptionService(app_settings.ENCRYPTION_KEY)
 
     for order in orders:
         user = await user_service.get_by_telegram_id(order.user.telegram_id if order.user else 0)
@@ -69,14 +68,13 @@ async def paginate_orders(callback: CallbackQuery, callback_data: Pagination, se
         return
 
     offset = callback_data.offset
-    order_service = OrderService(session, None)
+    from app.services.encryption import EncryptionService
+    encryption = EncryptionService(app_settings.ENCRYPTION_KEY)
+    order_service = OrderService(session, encryption)
     user_service = UserService(session)
 
     total = await order_service.count_active_orders()
     orders = await order_service.get_active_orders(offset=offset, limit=app_settings.ORDERS_PER_PAGE)
-
-    from app.services.encryption import EncryptionService
-    encryption = EncryptionService(app_settings.ENCRYPTION_KEY)
 
     for order in orders:
         user = await user_service.get_by_telegram_id(order.user.telegram_id if order.user else 0)
