@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     HEALTH_PORT: int = 8080
 
     # API
-    API_SECRET_KEY: str = ""
+    API_SECRET_KEY: str
     API_ACCESS_TOKEN_EXPIRE: int = 30 * 60
     API_REFRESH_TOKEN_EXPIRE: int = 7 * 24 * 60 * 60
     API_PORT: int = 8081

@@ -1,0 +1,37 @@
+psql_database:
+  provider: "config"
+  credentials:
+    username: "metis_user"
+    password: "metis_password"
+    host: "localhost"
+    port: 5432
+    database_name: "metis_db"
+
+metis_engine:
+  max_token_length: 250000
+  max_workers: 10
+  triage_checkpoint_every: 50
+  triage_tool_timeout_seconds: 12
+  embed_dim: 768
+  hnsw_kwargs:
+    hnsw_m: 16
+    hnsw_ef_construction: 64
+    hnsw_ef_search: 40
+    hnsw_dist_method: "vector_cosine_ops"
+
+llm_provider:
+  name: "ollama"
+  base_url: "http://localhost:11434/v1"
+  model: "nomic-embed-text-v2-moe"
+  api_key: "sk-3459a292d5a145bfa7ddae214d68f10e"
+  # Optional for reasoning-capable OpenAI models: none, minimal, low, medium,
+  # high, or xhigh depending on model support. Can be overridden under query.
+  # reasoning_effort: "medium"
+  code_embedding_model: "nomic-embed-text-v2-moe"
+  docs_embedding_model: "nomic-embed-text-v2-moe"
+
+query:
+  similarity_top_k: 25
+  response_mode: "tree_summarize"
+  max_tokens: 8000
+  temperature: 0.1

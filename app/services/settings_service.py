@@ -34,10 +34,11 @@ class SettingsService:
     async def set(self, key: str, value: str, user_id: int | None = None) -> None:
         await self.settings_repo.set(key, value)
         if user_id is not None:
+            is_sensitive = any(kw in key for kw in ["link", "requisites", "wallet", "card"])
             await self.audit_repo.log(
                 user_id=user_id,
                 action=f"change_setting_{key}",
-                details={"key": key, "value": "***" if "link" in key else value},
+                details={"key": key, "value": "***" if is_sensitive else value},
             )
 
     async def _get_flag(self, key: str) -> bool:
@@ -73,14 +74,26 @@ class SettingsService:
 
     async def get_requisites_card(self) -> str:
         value = await self.settings_repo.get("requisites_card")
-        return value if value is not None else "0000 0000 0000 0000"
+        if value:
+            try:
+                return self.encryption.decrypt(value)
+            except Exception:
+                return value
+        return "0000 0000 0000 0000"
 
     async def get_requisites_wallet(self) -> str:
         value = await self.settings_repo.get("requisites_wallet")
-        return value if value is not None else "TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        if value:
+            try:
+                return self.encryption.decrypt(value)
+            except Exception:
+                return value
+        return "TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
     async def set_requisites_card(self, value: str, user_id: int) -> None:
-        await self.set("requisites_card", value, user_id=user_id)
+        encrypted = self.encryption.encrypt(value) if value else ""
+        await self.set("requisites_card", encrypted, user_id=user_id)
 
     async def set_requisites_wallet(self, value: str, user_id: int) -> None:
-        await self.set("requisites_wallet", value, user_id=user_id)
+        encrypted = self.encryption.encrypt(value) if value else ""
+        await self.set("requisites_wallet", encrypted, user_id=user_id)

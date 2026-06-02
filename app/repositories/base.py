@@ -17,8 +17,11 @@ class BaseRepository(Generic[ModelType]):
         self.model = model
         self.session = session
 
-    async def get_by_id(self, id: int) -> ModelType | None:
-        result = await self.session.get(self.model, id)
+    async def get_by_id(self, id: int, for_update: bool = False) -> ModelType | None:
+        if for_update:
+            result = await self.session.get(self.model, id, with_for_update=True)
+        else:
+            result = await self.session.get(self.model, id)
         return result
 
     async def get_all(self, offset: int = 0, limit: int = 100) -> list[ModelType]:

@@ -50,7 +50,7 @@ class BotStatusMiddleware(BaseMiddleware):
                 await set_cached_flag("bot_enabled", value, ttl=CACHE_TTL)
         except Exception as e:
             logger.error(f"Error checking bot status: {e}")
-            is_enabled = True
+            is_enabled = False
 
         if not is_enabled:
             if isinstance(event, CallbackQuery):
