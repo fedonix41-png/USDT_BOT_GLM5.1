@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class ThrottlingMiddleware(BaseMiddleware):
-    """Rate limiting middleware to prevent spam.
+    """Rate limiting middleware to prevent spam using Redis.
     
     Limits:
     - Commands: 1 message per second
@@ -28,9 +28,7 @@ class ThrottlingMiddleware(BaseMiddleware):
     REGULAR_LIMIT = 3.0
 
     def __init__(self) -> None:
-        self._last_command: dict[int, float] = defaultdict(float)
-        self._fsm_history: dict[int, list[float]] = defaultdict(list)
-        self._last_message: dict[int, float] = defaultdict(float)
+        pass
 
     def _get_user_id(self, event: TelegramObject) -> int | None:
         if hasattr(event, "from_user") and event.from_user:
@@ -47,30 +45,41 @@ class ThrottlingMiddleware(BaseMiddleware):
             return text and text.startswith("/")
         return False
 
-    def _check_command_throttle(self, user_id: int) -> bool:
-        now = time.monotonic()
-        last = self._last_command[user_id]
-        if now - last < self.COMMAND_LIMIT:
-            return False
-        self._last_command[user_id] = now
-        return True
+    async def _check_command_throttle(self, user_id: int) -> bool:
+        try:
+            from app.utils.redis import get_redis
+            redis = await get_redis()
+            key = f"throttle:cmd:{user_id}"
+            # px expects milliseconds
+            is_set = await redis.set(key, "1", px=int(self.COMMAND_LIMIT * 1000), nx=True)
+            return bool(is_set)
+        except Exception as e:
+            logger.error("Redis throttle error (cmd): %s", e)
+            return True  # Fail-open if Redis is down
 
-    def _check_fsm_throttle(self, user_id: int) -> bool:
-        now = time.monotonic()
-        history = self._fsm_history[user_id]
-        history[:] = [t for t in history if now - t < self.FSM_WINDOW]
-        if len(history) >= self.FSM_LIMIT:
-            return False
-        history.append(now)
-        return True
+    async def _check_fsm_throttle(self, user_id: int) -> bool:
+        try:
+            from app.utils.redis import get_redis
+            redis = await get_redis()
+            key = f"throttle:fsm:{user_id}"
+            count = await redis.incr(key)
+            if count == 1:
+                await redis.expire(key, int(self.FSM_WINDOW))
+            return count <= self.FSM_LIMIT
+        except Exception as e:
+            logger.error("Redis throttle error (fsm): %s", e)
+            return True
 
-    def _check_regular_throttle(self, user_id: int) -> bool:
-        now = time.monotonic()
-        last = self._last_message[user_id]
-        if now - last < self.REGULAR_LIMIT:
-            return False
-        self._last_message[user_id] = now
-        return True
+    async def _check_regular_throttle(self, user_id: int) -> bool:
+        try:
+            from app.utils.redis import get_redis
+            redis = await get_redis()
+            key = f"throttle:reg:{user_id}"
+            is_set = await redis.set(key, "1", px=int(self.REGULAR_LIMIT * 1000), nx=True)
+            return bool(is_set)
+        except Exception as e:
+            logger.error("Redis throttle error (reg): %s", e)
+            return True
 
     async def _notify_throttle(self, event: TelegramObject) -> None:
         try:
@@ -100,15 +109,18 @@ class ThrottlingMiddleware(BaseMiddleware):
                 pass
 
         if self._is_command(event):
-            if not self._check_command_throttle(user_id):
+            is_allowed = await self._check_command_throttle(user_id)
+            if not is_allowed:
                 await self._notify_throttle(event)
                 return None
         elif current_state is not None:
-            if not self._check_fsm_throttle(user_id):
+            is_allowed = await self._check_fsm_throttle(user_id)
+            if not is_allowed:
                 await self._notify_throttle(event)
                 return None
         else:
-            if not self._check_regular_throttle(user_id):
+            is_allowed = await self._check_regular_throttle(user_id)
+            if not is_allowed:
                 await self._notify_throttle(event)
                 return None
 

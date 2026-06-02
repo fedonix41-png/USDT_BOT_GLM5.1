@@ -37,7 +37,7 @@ async def health_check(request: web.Request) -> web.Response:
     return web.Response(
         status=status,
         content_type="application/json",
-        body=json.dumps({"status": "healthy" if all_healthy else "unhealthy", "checks": checks}),
+        body=json.dumps({"status": "healthy" if all_healthy else "unhealthy"}),
     )
 
 

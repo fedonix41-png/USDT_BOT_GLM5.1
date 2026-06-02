@@ -177,7 +177,7 @@ class RoleFilter:
 Защита от IDOR — каждый обработчик проверяет `user.role` явно:
 
 ```python
-@router.callback_query(F.data == "mgmt:rate_buy")
+@router.callback_query(ManagementAction.filter(F.action == "rate_buy"))
 async def start_change_buy_rate(callback: CallbackQuery, state: FSMContext,
                                  session: AsyncSession, user: User | None) -> None:
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):

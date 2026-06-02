@@ -2,6 +2,8 @@
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from app.utils.callback_data import ManagementAction
+
 
 def management_keyboard(
     buy_enabled: bool = True,
@@ -16,35 +18,35 @@ def management_keyboard(
 
     kb = [
         [
-            InlineKeyboardButton(text="🔄 Курс покупки", callback_data="mgmt:rate_buy"),
-            InlineKeyboardButton(text="🔄 Курс продажи", callback_data="mgmt:rate_sell"),
+            InlineKeyboardButton(text="🔄 Курс покупки", callback_data=ManagementAction(action="rate_buy").pack()),
+            InlineKeyboardButton(text="🔄 Курс продажи", callback_data=ManagementAction(action="rate_sell").pack()),
         ],
-        [InlineKeyboardButton(text="🔗 Реквизиты", callback_data="mgmt:links")],
+        [InlineKeyboardButton(text="🔗 Реквизиты", callback_data=ManagementAction(action="links").pack())],
         [
-            InlineKeyboardButton(text=buy_btn, callback_data="mgmt:toggle_buy"),
-            InlineKeyboardButton(text=sell_btn, callback_data="mgmt:toggle_sell"),
+            InlineKeyboardButton(text=buy_btn, callback_data=ManagementAction(action="toggle_buy").pack()),
+            InlineKeyboardButton(text=sell_btn, callback_data=ManagementAction(action="toggle_sell").pack()),
         ],
-        [InlineKeyboardButton(text=bot_btn, callback_data="mgmt:toggle_bot")],
+        [InlineKeyboardButton(text=bot_btn, callback_data=ManagementAction(action="toggle_bot").pack())],
         [
-            InlineKeyboardButton(text="➕ Чаты", callback_data="mgmt:chats"),
+            InlineKeyboardButton(text="➕ Чаты", callback_data=ManagementAction(action="chats").pack()),
         ],
         [
-            InlineKeyboardButton(text="👤 Оператор", callback_data="mgmt:assign_operator"),
-            InlineKeyboardButton(text="👤⬇️ Снять оператора", callback_data="mgmt:demote_operator"),
+            InlineKeyboardButton(text="👤 Оператор", callback_data=ManagementAction(action="assign_operator").pack()),
+            InlineKeyboardButton(text="👤⬇️ Снять оператора", callback_data=ManagementAction(action="demote_operator").pack()),
         ],
     ]
 
     if is_super_admin:
         kb.append([
-            InlineKeyboardButton(text="👑 Админ", callback_data="mgmt:assign_admin"),
-            InlineKeyboardButton(text="👑⬇️ Снять админа", callback_data="mgmt:demote_admin"),
+            InlineKeyboardButton(text="👑 Админ", callback_data=ManagementAction(action="assign_admin").pack()),
+            InlineKeyboardButton(text="👑⬇️ Снять админа", callback_data=ManagementAction(action="demote_admin").pack()),
         ])
 
     kb.append([
-        InlineKeyboardButton(text="🚫 Забанить", callback_data="mgmt:ban_user"),
-        InlineKeyboardButton(text="✅ Разбанить", callback_data="mgmt:unban_user"),
+        InlineKeyboardButton(text="🚫 Забанить", callback_data=ManagementAction(action="ban_user").pack()),
+        InlineKeyboardButton(text="✅ Разбанить", callback_data=ManagementAction(action="unban_user").pack()),
     ])
 
-    kb.append([InlineKeyboardButton(text="🔙 Закрыть", callback_data="mgmt:close")])
+    kb.append([InlineKeyboardButton(text="🔙 Закрыть", callback_data=ManagementAction(action="close").pack())])
 
     return InlineKeyboardMarkup(inline_keyboard=kb)

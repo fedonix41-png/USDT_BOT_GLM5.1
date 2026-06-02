@@ -84,3 +84,40 @@ class TestEncryptionService:
         encrypted = svc1.encrypt("secret")
         with pytest.raises(Exception):
             svc2.decrypt(encrypted)
+
+    def test_encrypt_decrypt_gcm(self):
+        svc = EncryptionService(TEST_KEY)
+        plaintext = "Hello, GCM World!"
+        ciphertext = svc.encrypt(plaintext)
+        
+        assert ciphertext.startswith("gcm$")
+        assert ciphertext != plaintext
+        
+        decrypted = svc.decrypt(ciphertext)
+        assert decrypted == plaintext
+
+    def test_decrypt_legacy_cbc(self):
+        import os
+        from binascii import hexlify
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        from cryptography.hazmat.primitives.padding import PKCS7
+        svc = EncryptionService(TEST_KEY)
+        
+        plaintext = "Hello, CBC World!"
+        iv = os.urandom(16)
+        padder = PKCS7(128).padder()
+        padded = padder.update(plaintext.encode("utf-8")) + padder.finalize()
+        cipher = Cipher(algorithms.AES(svc._key), modes.CBC(iv))
+        encryptor = cipher.encryptor()
+        ciphertext_bytes = encryptor.update(padded) + encryptor.finalize()
+        
+        legacy_cipher_hex = hexlify(iv + ciphertext_bytes).decode("ascii")
+        
+        decrypted = svc.decrypt(legacy_cipher_hex)
+        assert decrypted == plaintext
+
+    def test_decrypt_size_limit(self):
+        svc = EncryptionService(TEST_KEY)
+        large_cipher = "gcm$" + "a" * 102401
+        with pytest.raises(ValueError, match="too long"):
+            svc.decrypt(large_cipher)

@@ -30,25 +30,22 @@ logger = logging.getLogger(__name__)
 
 router = Router()
 
-# Prefix used for calendar callback data
-_CALENDAR_PREFIX = "cal"
+from app.utils.callback_data import CalendarAction
 
 
-@router.callback_query(F.data == f"{_CALENDAR_PREFIX}:ignore")
+@router.callback_query(CalendarAction.filter(F.action == "ignore"))
 async def ignore_calendar_button(callback: CallbackQuery) -> None:
     """Ignore clicks on header/placeholder buttons."""
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith(f"{_CALENDAR_PREFIX}:nav:"))
-async def navigate_calendar(callback: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(CalendarAction.filter(F.action.in_({"prev", "next"})))
+async def navigate_calendar(callback: CallbackQuery, callback_data: CalendarAction, state: FSMContext) -> None:
     """Handle month navigation in the calendar."""
-    parts = callback.data.split(":")
-    # cal:nav:direction:year:month
-    target_year = int(parts[3])
-    target_month = int(parts[4])
+    target_year = callback_data.year
+    target_month = callback_data.month
 
-    new_kb = calendar_kb(year=target_year, month=target_month, prefix=_CALENDAR_PREFIX)
+    new_kb = calendar_kb(year=target_year, month=target_month, prefix=callback_data.prefix)
 
     try:
         await callback.message.edit_reply_markup(reply_markup=new_kb)
@@ -58,19 +55,18 @@ async def navigate_calendar(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith(f"{_CALENDAR_PREFIX}:pick:"))
+@router.callback_query(CalendarAction.filter(F.action == "pick"))
 async def pick_calendar_date(
     callback: CallbackQuery,
+    callback_data: CalendarAction,
     state: FSMContext,
     session: AsyncSession,
     user: User | None,
 ) -> None:
     """Handle day selection in the calendar."""
-    parts = callback.data.split(":")
-    # cal:pick:year:month:day
-    year = int(parts[2])
-    month = int(parts[3])
-    day = int(parts[4])
+    year = callback_data.year
+    month = callback_data.month
+    day = callback_data.day
     selected_date = datetime(year, month, day)
 
     current_state = await state.get_state()
@@ -81,7 +77,7 @@ async def pick_calendar_date(
         await reset_fsm_attempts(state)
         await state.set_state(StatisticsStates.waiting_end_date)
 
-        new_kb = calendar_kb(prefix=_CALENDAR_PREFIX)
+        new_kb = calendar_kb(prefix=callback_data.prefix)
         await callback.message.edit_text(
             text=(
                 f"✅ Начальная дата: {selected_date.strftime('%d.%m.%Y')}\n\n"

@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.padding import PKCS7
 
 
 class EncryptionService:
-    """AES-256-CBC encryption/decryption service."""
+    """AES-256-GCM encryption/decryption service (with CBC fallback for old data)."""
 
     BLOCK_SIZE = 16  # AES block size in bytes
     KEY_SIZE = 32  # AES-256 key size in bytes
@@ -61,64 +61,85 @@ class EncryptionService:
         )
 
     def encrypt(self, plaintext: str) -> str:
-        """Encrypt plaintext using AES-256-CBC.
+        """Encrypt plaintext using AES-256-GCM.
 
-        Generates a random 16-byte IV, encrypts with PKCS7 padding,
-        and returns hex-encoded (IV + ciphertext).
+        Generates a random 12-byte IV, encrypts, and returns hex-encoded (IV + Tag + ciphertext)
+        with a 'gcm$' prefix.
 
         Args:
             plaintext: The string to encrypt.
 
         Returns:
-            Hex-encoded string of (IV + ciphertext).
+            Hex-encoded string prefixed with 'gcm$'.
         """
         if not plaintext:
             return ""
 
-        iv = os.urandom(self.BLOCK_SIZE)
+        iv = os.urandom(12)  # Recommended length for GCM
 
-        # PKCS7 padding
-        padder = PKCS7(self.BLOCK_SIZE * 8).padder()
-        padded = padder.update(plaintext.encode("utf-8")) + padder.finalize()
-
-        cipher = Cipher(algorithms.AES(self._key), modes.CBC(iv))
+        cipher = Cipher(algorithms.AES(self._key), modes.GCM(iv))
         encryptor = cipher.encryptor()
-        ciphertext = encryptor.update(padded) + encryptor.finalize()
+        ciphertext = encryptor.update(plaintext.encode("utf-8")) + encryptor.finalize()
 
-        return hexlify(iv + ciphertext).decode("ascii")
+        # tag is 16 bytes
+        return "gcm$" + hexlify(iv + encryptor.tag + ciphertext).decode("ascii")
 
     def decrypt(self, cipher_hex: str) -> str:
-        """Decrypt hex-encoded (IV + ciphertext) using AES-256-CBC.
+        """Decrypt hex-encoded string.
+
+        Supports 'gcm$' prefix (AES-GCM) and fallback to old format (AES-CBC).
 
         Args:
-            cipher_hex: Hex-encoded string of (IV + ciphertext).
+            cipher_hex: Hex-encoded string.
 
         Returns:
             The decrypted plaintext string.
 
         Raises:
-            ValueError: If cipher_hex is empty or invalid.
+            ValueError: If cipher_hex is empty, too long, or invalid.
         """
         if not cipher_hex:
             return ""
+            
+        if len(cipher_hex) > 102400:  # 100 KB limit to prevent DoS
+            raise ValueError("Cipher text too long")
 
-        try:
-            raw = unhexlify(cipher_hex)
-        except (ValueError, TypeError) as e:
-            raise ValueError(f"Invalid hex cipher text: {e}")
+        if cipher_hex.startswith("gcm$"):
+            hex_data = cipher_hex[4:]
+            try:
+                raw = unhexlify(hex_data)
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Invalid hex cipher text: {e}")
+                
+            if len(raw) < 12 + 16:
+                raise ValueError("Cipher text too short for GCM")
+                
+            iv = raw[:12]
+            tag = raw[12:28]
+            ciphertext = raw[28:]
+            
+            cipher = Cipher(algorithms.AES(self._key), modes.GCM(iv, tag))
+            decryptor = cipher.decryptor()
+            return (decryptor.update(ciphertext) + decryptor.finalize()).decode("utf-8")
+        else:
+            # Fallback to AES-CBC
+            try:
+                raw = unhexlify(cipher_hex)
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Invalid hex cipher text: {e}")
 
-        if len(raw) < self.BLOCK_SIZE + 1:
-            raise ValueError("Cipher text too short")
+            if len(raw) < self.BLOCK_SIZE + 1:
+                raise ValueError("Cipher text too short")
 
-        iv = raw[: self.BLOCK_SIZE]
-        ciphertext = raw[self.BLOCK_SIZE :]
+            iv = raw[: self.BLOCK_SIZE]
+            ciphertext = raw[self.BLOCK_SIZE :]
 
-        cipher = Cipher(algorithms.AES(self._key), modes.CBC(iv))
-        decryptor = cipher.decryptor()
-        padded = decryptor.update(ciphertext) + decryptor.finalize()
+            cipher = Cipher(algorithms.AES(self._key), modes.CBC(iv))
+            decryptor = cipher.decryptor()
+            padded = decryptor.update(ciphertext) + decryptor.finalize()
 
-        # Remove PKCS7 padding
-        unpadder = PKCS7(self.BLOCK_SIZE * 8).unpadder()
-        data = unpadder.update(padded) + unpadder.finalize()
+            # Remove PKCS7 padding
+            unpadder = PKCS7(self.BLOCK_SIZE * 8).unpadder()
+            data = unpadder.update(padded) + unpadder.finalize()
 
-        return data.decode("utf-8")
+            return data.decode("utf-8")

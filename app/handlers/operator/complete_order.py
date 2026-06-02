@@ -19,14 +19,16 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-@router.callback_query(F.data.startswith("order_complete:"))
-async def complete_order_callback(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
+from app.utils.callback_data import OrderAction
+
+@router.callback_query(OrderAction.filter(F.action == "complete"))
+async def complete_order_callback(callback: CallbackQuery, callback_data: OrderAction, session: AsyncSession, user: User | None) -> None:
     """Handle complete order inline button."""
     if user is None or user.role not in (RoleEnum.operator, RoleEnum.admin, RoleEnum.super_admin):
         await callback.answer("У вас недостаточно прав.", show_alert=True)
         return
 
-    order_id = int(callback.data.split(":")[1])
+    order_id = callback_data.order_id
     operator = user
 
     encryption = EncryptionService(app_settings.ENCRYPTION_KEY)
@@ -71,15 +73,15 @@ async def complete_order_callback(callback: CallbackQuery, session: AsyncSession
     logger.info(f"Order #{order_id} completed by operator {operator.telegram_id}")
 
 
-@router.callback_query(F.data.startswith("order_admin_cancel:"))
-async def admin_cancel_order_callback(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
+@router.callback_query(OrderAction.filter(F.action == "admin_cancel"))
+async def admin_cancel_order_callback(callback: CallbackQuery, callback_data: OrderAction, session: AsyncSession, user: User | None) -> None:
     """Handle admin/operator cancel order inline button."""
     if user is None or user.role not in (RoleEnum.operator, RoleEnum.admin, RoleEnum.super_admin):
         logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=operator+")
         await callback.answer("У вас недостаточно прав.", show_alert=True)
         return
 
-    order_id = int(callback.data.split(":")[1])
+    order_id = callback_data.order_id
 
     order_service = OrderService(session, None)
     order = await order_service.get_order_by_id(order_id)

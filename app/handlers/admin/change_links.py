@@ -27,14 +27,16 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-@router.callback_query(ChangeLinksStates.choosing_type, F.data.startswith("link_type:"))
-async def choose_link_type(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
+from app.utils.callback_data import LinkAction
+
+@router.callback_query(ChangeLinksStates.choosing_type, LinkAction.filter(F.action == "type"))
+async def choose_link_type(callback: CallbackQuery, state: FSMContext, callback_data: LinkAction, user: User | None) -> None:
     """Handle link type selection."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
         logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
         await callback.answer("У вас нет прав.", show_alert=True)
         return
-    link_type = callback.data.split(":")[1]
+    link_type = callback_data.type
     order_type = OrderTypeEnum.buy if link_type == "buy" else OrderTypeEnum.sell
     type_str = "покупки" if link_type == "buy" else "продажи"
 

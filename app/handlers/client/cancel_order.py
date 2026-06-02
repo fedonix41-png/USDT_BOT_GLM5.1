@@ -15,10 +15,12 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-@router.callback_query(F.data.startswith("order_cancel:"))
-async def cancel_order_callback(callback: CallbackQuery, session: AsyncSession) -> None:
+from app.utils.callback_data import OrderAction
+
+@router.callback_query(OrderAction.filter(F.action == "cancel"))
+async def cancel_order_callback(callback: CallbackQuery, callback_data: OrderAction, session: AsyncSession) -> None:
     """Handle cancel order inline button."""
-    order_id = int(callback.data.split(":")[1])
+    order_id = callback_data.order_id
     user_service = UserService(session)
     user = await user_service.get_by_telegram_id(callback.from_user.id)
 

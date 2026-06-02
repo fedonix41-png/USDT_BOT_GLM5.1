@@ -143,7 +143,7 @@
 
 ```
 [❌ Отменить заявку] →
-  Callback data: "order_cancel:{order_id}"
+  Callback data: `OrderAction(action="cancel", order_id=...).pack()`
   Проверить: заказ существует, статус = created, user_id совпадает
   Изменить статус на cancelled
   Редактировать сообщение: «❌ Заявка #{id} отменена.»
@@ -155,7 +155,7 @@
 
 ```
 [🔗 Ссылка не работает] →
-  Callback data: "order_broken_link:{order_id}"
+  Callback data: `OrderAction(action="broken_link", order_id=...).pack()`
   Проверить: order.user_id == user.id (защита от IDOR)
   Установить link_broken = True
   Ответить alert: «Мы уже меняем ссылку. Новая ссылка будет отправлена сюда же.»
@@ -191,7 +191,7 @@
 
 ```
 [✅ Завершить] →
-  Callback data: "order_complete:{order_id}"
+  Callback data: `OrderAction(action="complete", order_id=...).pack()`
   Проверить: user.role >= operator
   Изменить статус на completed
   Редактировать сообщение оператора: «✅ Заявка #{id} завершена оператором @{operator}.»

@@ -1,16 +1,15 @@
 """Inline calendar keyboard for date selection in Telegram bots.
 
 Generates a month-grid calendar with navigation arrows.
-Callback data format:
-  - cal:nav:{direction}:{year}:{month}  — navigate months (direction = prev/next)
-  - cal:pick:{year}:{month}:{day}       — select a specific day
-  - cal:ignore                          — empty placeholder button
+Callback data is formatted using CalendarAction aiogram CallbackData.
 """
 
 import calendar
 from datetime import datetime
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+from app.utils.callback_data import CalendarAction
 
 _MONTH_NAMES_RU = {
     1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель",
@@ -36,8 +35,7 @@ def calendar_kb(
     Args:
         year: Year (defaults to current).
         month: Month 1-12 (defaults to current).
-        prefix: Callback data prefix to distinguish calendars
-                (e.g. 'cal_start' vs 'cal_end').
+        prefix: Callback data prefix to distinguish calendars.
 
     Returns:
         InlineKeyboardMarkup with month navigation and day grid.
@@ -59,22 +57,22 @@ def calendar_kb(
     header = [
         InlineKeyboardButton(
             text="◀️",
-            callback_data=f"{prefix}:nav:prev:{prev_year}:{prev_month}",
+            callback_data=CalendarAction(prefix=prefix, action="prev", year=prev_year, month=prev_month).pack(),
         ),
         InlineKeyboardButton(
             text=_month_name(year, month),
-            callback_data=f"{prefix}:ignore",
+            callback_data=CalendarAction(prefix=prefix, action="ignore").pack(),
         ),
         InlineKeyboardButton(
             text="▶️",
-            callback_data=f"{prefix}:nav:next:{next_year}:{next_month}",
+            callback_data=CalendarAction(prefix=prefix, action="next", year=next_year, month=next_month).pack(),
         ),
     ]
     buttons.append(header)
 
     # ── Day-name row ──
     day_name_row = [
-        InlineKeyboardButton(text=name, callback_data=f"{prefix}:ignore")
+        InlineKeyboardButton(text=name, callback_data=CalendarAction(prefix=prefix, action="ignore").pack())
         for name in _DAY_NAMES_RU
     ]
     buttons.append(day_name_row)
@@ -87,11 +85,11 @@ def calendar_kb(
         row: list[InlineKeyboardButton] = []
         for day in week:
             if day == 0:
-                row.append(InlineKeyboardButton(text=" ", callback_data=f"{prefix}:ignore"))
+                row.append(InlineKeyboardButton(text=" ", callback_data=CalendarAction(prefix=prefix, action="ignore").pack()))
             else:
                 row.append(InlineKeyboardButton(
                     text=str(day),
-                    callback_data=f"{prefix}:pick:{year}:{month}:{day}",
+                    callback_data=CalendarAction(prefix=prefix, action="pick", year=year, month=month, day=day).pack(),
                 ))
         buttons.append(row)
 

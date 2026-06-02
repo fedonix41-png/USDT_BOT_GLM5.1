@@ -18,10 +18,12 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-@router.callback_query(F.data.startswith("order_broken_link:"))
-async def broken_link_callback(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
+from app.utils.callback_data import OrderAction
+
+@router.callback_query(OrderAction.filter(F.action == "broken_link"))
+async def broken_link_callback(callback: CallbackQuery, callback_data: OrderAction, session: AsyncSession, user: User | None) -> None:
     """Handle 'Link not working' inline button."""
-    order_id = int(callback.data.split(":")[1])
+    order_id = callback_data.order_id
 
     if user is None:
         logger.warning(f"Unauthorized broken_link attempt: user_id={callback.from_user.id}, order_id={order_id}, reason=user_not_found")

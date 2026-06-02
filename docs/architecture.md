@@ -134,7 +134,7 @@ Telegram-бот для обмена USDT построен по модульно�
 
 | Сервис | Назначение |
 |--------|------------|
-| **EncryptionService** | AES-256-CBC шифрование/дешифрование реквизитов. IV генерируется случайно, prepend к ciphertext, результат — hex-строка |
+| **EncryptionService** | AES-GCM шифрование/дешифрование новых реквизитов (с аутентификацией, префикс `gcm$`). Оставлена legacy-поддержка AES-256-CBC для старых записей (префикс `v1$`). Защита от DoS ограничением размера в 100KB |
 | **UserService** | Регистрация пользователей, управление ролями, проверка `is_super_admin` |
 | **OrderService** | Создание/отмена/завершение заявок, расчёт статистики, агрегация сумм. Web-методы: `create_order_web()`, `cancel_order_by_client()`, `reject_order()`, `flag_order_broken()` |
 | **RateService** | Получение текущего курса, установка нового курса (append в таблицу `rates`) |
@@ -194,7 +194,7 @@ Request → ThrottlingMiddleware (outermost)
 
 | Порядок | Middleware | Файл | Назначение |
 |---------|-----------|------|------------|
-| 1 | `ThrottlingMiddleware` | `app/middlewares/throttling.py` | Защита от спама. Лимиты: команды 1/сек, FSM 5/мин, сообщения 3/сек. Должен быть outermost — блокирует спам до любой обработки. |
+| 1 | `ThrottlingMiddleware` | `app/middlewares/throttling.py` | Защита от спама через Redis (`SET NX`, `INCR`, `EXPIRE`). Лимиты: команды 1/сек, FSM 5/мин, сообщения 3/сек. Поддерживает горизонтальное масштабирование. Должен быть outermost — блокирует спам до любой обработки. |
 | 2 | `DBSessionMiddleware` | `app/middlewares/db_session.py` | Инъекция `AsyncSession` в `data["session"]`. Открывает сессию перед обработкой, коммитит после, откатывает при ошибке. |
 | 3 | `UserMiddleware` | `app/middlewares/user_middleware.py` | Загрузка пользователя из БД в `data["user"]`. Блокирует заблокированных (`is_blocked=True`) клиентов. Зависит от `session`. |
 | 4 | `BotStatusMiddleware` | `app/middlewares/bot_status.py` | Проверка флага `bot_enabled` (кеш Redis TTL=30с). Блокирует клиентов когда бот отключён. Операторы/админы проходят всегда. Зависит от `user`. |

@@ -58,15 +58,17 @@ async def show_active_orders(message: Message, session: AsyncSession, user: User
         await message.answer(f"Страница 1 из {pagination['total_pages']}", reply_markup=pag_kb)
 
 
-@router.callback_query(F.data.startswith("page:orders:"))
-async def paginate_orders(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
+from app.utils.callback_data import Pagination
+
+@router.callback_query(Pagination.filter(F.target == "orders"))
+async def paginate_orders(callback: CallbackQuery, callback_data: Pagination, session: AsyncSession, user: User | None) -> None:
     """Handle pagination for active orders."""
     if user is None or user.role not in (RoleEnum.operator, RoleEnum.admin, RoleEnum.super_admin):
         logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=operator+")
         await callback.answer("У вас недостаточно прав.", show_alert=True)
         return
 
-    offset = int(callback.data.split(":")[2])
+    offset = callback_data.offset
     order_service = OrderService(session, None)
     user_service = UserService(session)
 

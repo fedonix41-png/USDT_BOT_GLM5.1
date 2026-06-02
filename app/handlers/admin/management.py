@@ -24,6 +24,7 @@ from app.services.encryption import EncryptionService
 from app.services.rate_service import RateService
 from app.services.settings_service import SettingsService
 from app.utils.helpers import get_settings_flags, reset_fsm_attempts
+from app.utils.callback_data import ManagementAction
 
 logger = logging.getLogger(__name__)
 
@@ -52,14 +53,14 @@ async def show_management_panel(message: Message, session: AsyncSession, user: U
     await message.answer("⚙️ Управление:", reply_markup=kb)
 
 
-@router.callback_query(F.data == "mgmt:close")
+@router.callback_query(ManagementAction.filter(F.action == "close"))
 async def close_management_panel(callback: CallbackQuery) -> None:
     """Close the management panel."""
     await callback.message.edit_text("⚙️ Панель закрыта.")
     await callback.answer()
 
 
-@router.callback_query(F.data == "mgmt:toggle_buy")
+@router.callback_query(ManagementAction.filter(F.action == "toggle_buy"))
 async def toggle_buy(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """Toggle buy_enabled flag."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -78,7 +79,7 @@ async def toggle_buy(callback: CallbackQuery, session: AsyncSession, user: User 
     logger.info(f"Buy toggled to {now_enabled} by user {user.telegram_id}")
 
 
-@router.callback_query(F.data == "mgmt:toggle_sell")
+@router.callback_query(ManagementAction.filter(F.action == "toggle_sell"))
 async def toggle_sell(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """Toggle sell_enabled flag."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -97,7 +98,7 @@ async def toggle_sell(callback: CallbackQuery, session: AsyncSession, user: User
     logger.info(f"Sell toggled to {now_enabled} by user {user.telegram_id}")
 
 
-@router.callback_query(F.data == "mgmt:toggle_bot")
+@router.callback_query(ManagementAction.filter(F.action == "toggle_bot"))
 async def toggle_bot(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """Toggle bot_enabled flag."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -121,7 +122,7 @@ async def toggle_bot(callback: CallbackQuery, session: AsyncSession, user: User 
 
 # --- FSM-triggering callbacks ---
 
-@router.callback_query(F.data == "mgmt:rate_buy")
+@router.callback_query(ManagementAction.filter(F.action == "rate_buy"))
 async def start_change_buy_rate(callback: CallbackQuery, state: FSMContext, session: AsyncSession, user: User | None) -> None:
     """Start change buy rate FSM from management panel."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -142,7 +143,7 @@ async def start_change_buy_rate(callback: CallbackQuery, state: FSMContext, sess
     await callback.answer()
 
 
-@router.callback_query(F.data == "mgmt:rate_sell")
+@router.callback_query(ManagementAction.filter(F.action == "rate_sell"))
 async def start_change_sell_rate(callback: CallbackQuery, state: FSMContext, session: AsyncSession, user: User | None) -> None:
     """Start change sell rate FSM from management panel."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -163,7 +164,7 @@ async def start_change_sell_rate(callback: CallbackQuery, state: FSMContext, ses
     await callback.answer()
 
 
-@router.callback_query(F.data == "mgmt:links")
+@router.callback_query(ManagementAction.filter(F.action == "links"))
 async def start_change_links(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start change links FSM from management panel."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -183,7 +184,7 @@ async def start_change_links(callback: CallbackQuery, state: FSMContext, user: U
     await callback.answer()
 
 
-@router.callback_query(F.data == "mgmt:chats")
+@router.callback_query(ManagementAction.filter(F.action == "chats"))
 async def start_notification_chats(callback: CallbackQuery, user: User | None) -> None:
     """Show notification chats menu from management panel."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -197,7 +198,7 @@ async def start_notification_chats(callback: CallbackQuery, user: User | None) -
     await callback.answer()
 
 
-@router.callback_query(F.data == "mgmt:assign_operator")
+@router.callback_query(ManagementAction.filter(F.action == "assign_operator"))
 async def start_assign_operator(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start assign operator FSM from management panel."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -214,7 +215,7 @@ async def start_assign_operator(callback: CallbackQuery, state: FSMContext, user
     await callback.answer()
 
 
-@router.callback_query(F.data == "mgmt:demote_operator")
+@router.callback_query(ManagementAction.filter(F.action == "demote_operator"))
 async def start_demote_operator(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start demote operator FSM from management panel."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -231,7 +232,7 @@ async def start_demote_operator(callback: CallbackQuery, state: FSMContext, user
     await callback.answer()
 
 
-@router.callback_query(F.data == "mgmt:assign_admin")
+@router.callback_query(ManagementAction.filter(F.action == "assign_admin"))
 async def start_assign_admin(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start assign admin FSM from management panel (super_admin only)."""
     if user is None or user.role != RoleEnum.super_admin:
@@ -249,7 +250,7 @@ async def start_assign_admin(callback: CallbackQuery, state: FSMContext, user: U
     await callback.answer()
 
 
-@router.callback_query(F.data == "mgmt:demote_admin")
+@router.callback_query(ManagementAction.filter(F.action == "demote_admin"))
 async def start_demote_admin(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start demote admin FSM from management panel (super_admin only)."""
     if user is None or user.role != RoleEnum.super_admin:
@@ -267,7 +268,7 @@ async def start_demote_admin(callback: CallbackQuery, state: FSMContext, user: U
     await callback.answer()
 
 
-@router.callback_query(F.data == "mgmt:ban_user")
+@router.callback_query(ManagementAction.filter(F.action == "ban_user"))
 async def start_ban_user(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start ban user FSM from management panel."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -284,7 +285,7 @@ async def start_ban_user(callback: CallbackQuery, state: FSMContext, user: User 
     await callback.answer()
 
 
-@router.callback_query(F.data == "mgmt:unban_user")
+@router.callback_query(ManagementAction.filter(F.action == "unban_user"))
 async def start_unban_user(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start unban user FSM from management panel."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):

@@ -89,7 +89,7 @@ app/
 │   └── api_token_repo.py # manage refresh tokens
 │
 ├── services/           # Бизнес-логика
-│   ├── encryption.py   # AES-256-CBC шифрование (encrypt/decrypt)
+│   ├── encryption.py   # AES-GCM (legacy CBC) шифрование (encrypt/decrypt) с лимитом 100KB
 │   ├── user_service.py # get_or_create, set_role, block_user, unblock_user, set_phone, is_super_admin
 │   ├── order_service.py # create_order, cancel_order, complete_order, get_statistics + TelePay: create_order_web, cancel_order_by_client, reject_order, flag_order_broken
 │   ├── rate_service.py # get_current_rate, set_rate
@@ -106,7 +106,7 @@ app/
 │   └── common/         # broken_link.py, cancel.py (глобальная отмена FSM), calendar.py
 │
 ├── middlewares/
-│   ├── throttling.py        # Антиспам (1/сек команды, 5/мин FSM, 3/сек сообщения)
+│   ├── throttling.py        # Redis-антиспам (1/сек команды, 5/мин FSM, 3/сек сообщения)
 │   ├── db_session.py       # Инъекция AsyncSession + обработка потери БД
 │   ├── user_middleware.py  # Загрузка user + проверка is_blocked
 │   ├── bot_status.py       # Проверка bot_enabled (Redis кеш 30 сек)
@@ -133,9 +133,9 @@ app/
 │   └── jobs.py         # send_notification, update_broken_links
 │
 └── utils/
-    ├── formatting.py   # HTML-экранирование для Telegram
-    ├── pagination.py   # Утилиты пагинации
-    ├── helpers.py      # get_settings_flags, check_fsm_attempts, reset_fsm_attempts
+    ├── callback_data.py # aiogram CallbackData фабрики (OrderAction, ManagementAction и т.д.)
+    ├── formatting.py    # Функции генерации текстовых ответов
+    ├── helpers.py       # Вспомогательные утилиты (get_settings_flags, FSM attempts), reset_fsm_attempts
     ├── redis.py        # Redis connection pool, cached flags
     └── logging_config.py # JSON logging formatter
 ```

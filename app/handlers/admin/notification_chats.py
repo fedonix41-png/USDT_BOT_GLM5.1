@@ -23,11 +23,14 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
+from app.utils.callback_data import NotificationAction
+
+
 class NotificationChatStates(StatesGroup):
     waiting_chat_id = State()
 
 
-@router.callback_query(F.data == "notif_list")
+@router.callback_query(NotificationAction.filter(F.action == "list"))
 async def list_chats(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """List all notification chats."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -48,7 +51,7 @@ async def list_chats(callback: CallbackQuery, session: AsyncSession, user: User 
     await callback.answer()
 
 
-@router.callback_query(F.data == "notif_add")
+@router.callback_query(NotificationAction.filter(F.action == "add"))
 async def start_add_chat(callback: CallbackQuery, state: FSMContext, user: User | None) -> None:
     """Start adding a notification chat."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -119,7 +122,7 @@ async def process_add_chat(
     logger.info(f"Notification chat {chat_id} added by user {message.from_user.id}")
 
 
-@router.callback_query(F.data == "notif_delete")
+@router.callback_query(NotificationAction.filter(F.action == "delete"))
 async def start_delete_chat(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
     """Start deleting a notification chat — show list."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
@@ -139,14 +142,14 @@ async def start_delete_chat(callback: CallbackQuery, session: AsyncSession, user
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("chat_del:"))
-async def delete_chat(callback: CallbackQuery, session: AsyncSession, user: User | None) -> None:
+@router.callback_query(NotificationAction.filter(F.action == "del"))
+async def delete_chat(callback: CallbackQuery, callback_data: NotificationAction, session: AsyncSession, user: User | None) -> None:
     """Delete selected notification chat."""
     if user is None or user.role not in (RoleEnum.admin, RoleEnum.super_admin):
         logger.warning(f"Unauthorized access attempt: user_id={callback.from_user.id}, callback={callback.data}, required_role=admin+")
         await callback.answer("У вас нет прав.", show_alert=True)
         return
-    chat_db_id = int(callback.data.split(":")[1])
+    chat_db_id = callback_data.chat_id
     notif_service = NotificationService(session)
 
     chat = await notif_service.get_all_chats()
@@ -168,7 +171,7 @@ async def delete_chat(callback: CallbackQuery, session: AsyncSession, user: User
         await callback.answer("Ошибка удаления.", show_alert=True)
 
 
-@router.callback_query(F.data == "notif_back")
+@router.callback_query(NotificationAction.filter(F.action == "back"))
 async def back_from_notif_menu(callback: CallbackQuery) -> None:
     """Back button from notification chats submenu — dismiss inline keyboard."""
     await callback.message.edit_text("Управление чатами закрыто.")
