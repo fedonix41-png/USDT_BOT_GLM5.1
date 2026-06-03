@@ -1,91 +1,68 @@
 """REST API application entry point."""
 
-import asyncio
 import logging
-import signal
 
-from aiohttp import web
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.deps import auth_middleware
-from app.api.exceptions import api_error_middleware
+from app.api.exceptions import setup_exception_handlers
 from app.api.middleware import (
-    cors_middleware,
-    ip_whitelist_middleware,
-    logging_middleware,
-    login_rate_limit_middleware,
-    rate_limit_middleware,
+    LoggingMiddleware,
+    LoginRateLimitMiddleware,
+    RateLimitMiddleware,
 )
-from app.api.routers import auth, exchange, orders, rates, settings, statistics, users, support
+from app.api.routers import auth, exchange, orders, rates, settings, statistics, users, support, telegram
 from app.config import settings as app_settings
 from app.utils.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
-router = web.RouteTableDef()
 
-
-def create_api_app() -> web.Application:
-    app = web.Application(
-        middlewares=[
-            logging_middleware,
-            cors_middleware,
-            rate_limit_middleware,
-            login_rate_limit_middleware,
-            auth_middleware,
-            ip_whitelist_middleware,
-            api_error_middleware,
-        ]
+def create_api_app() -> FastAPI:
+    setup_logging()
+    
+    app = FastAPI(
+        title="USDT Bot API",
+        version="1.0.0",
+        openapi_url="/api/v1/openapi.json",
+        docs_url="/docs",
+        redoc_url="/redoc"
     )
 
-    app["logger"] = logger
+    # Setup exception handlers
+    setup_exception_handlers(app)
 
-    app.router.add_routes(auth.router)
-    app.router.add_routes(users.router)
-    app.router.add_routes(orders.router)
-    app.router.add_routes(rates.router)
-    app.router.add_routes(settings.router)
-    app.router.add_routes(statistics.router)
-    app.router.add_routes(exchange.router)
-    app.router.add_routes(support.router)
+    # Middlewares (added in reverse order of execution)
+    app.add_middleware(LoginRateLimitMiddleware)
+    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(LoggingMiddleware)
     
-    from app.api.routers import telegram
-    app.router.add_routes(telegram.router)
+    cors_origins = app_settings.API_CORS_ORIGINS if app_settings.API_CORS_ORIGINS else ["*"]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+        max_age=86400,
+    )
 
-    async def health_check(request: web.Request) -> web.Response:
-        return web.json_response({"status": "healthy"})
+    # Routers
+    app.include_router(auth.router)
+    app.include_router(users.router)
+    app.include_router(orders.router)
+    app.include_router(rates.router)
+    app.include_router(settings.router)
+    app.include_router(statistics.router)
+    app.include_router(exchange.router)
+    app.include_router(support.router)
+    app.include_router(telegram.router)
 
-    app.router.add_get("/api/v1/health", health_check)
+    @app.get("/api/v1/health")
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy"}
 
-    logger.info("API application created")
+    logger.info("FastAPI application created")
     return app
 
-
-async def start_api_server(port: int | None = None) -> None:
-    setup_logging()
-    app = create_api_app()
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", port or app_settings.API_PORT)
-
-    shutdown_event = asyncio.Event()
-
-    def signal_handler():
-        logger.info("Received shutdown signal")
-        shutdown_event.set()
-
-    loop = asyncio.get_event_loop()
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, signal_handler)
-
-    await site.start()
-    logger.info(f"API server started on port {port or app_settings.API_PORT}")
-
-    try:
-        await shutdown_event.wait()
-    finally:
-        logger.info("Shutting down API server...")
-        await runner.cleanup()
-        logger.info("API server stopped")
-
-
-if __name__ == "__main__":
-    asyncio.run(start_api_server())
+app = create_api_app()

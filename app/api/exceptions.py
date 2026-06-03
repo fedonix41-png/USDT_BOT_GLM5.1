@@ -1,6 +1,6 @@
 """API exceptions and error handling."""
 
-from aiohttp import web
+
 
 
 class APIException(Exception):  # noqa: N818
@@ -49,17 +49,20 @@ class LoginBlockedError(APIException):
         self.retry_after = retry_after
 
 
-async def api_error_middleware(app: web.Application, handler):
-    async def middleware_handler(request: web.Request) -> web.Response:
-        try:
-            return await handler(request)
-        except APIException as e:
-            return web.json_response(e.to_dict(), status=e.status_code)
-        except Exception as e:
-            app["logger"].exception(f"Unhandled error: {e}")
-            return web.json_response(
-                {"error": "internal_error", "message": "Internal server error"},
-                status=500,
-            )
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+import logging
 
-    return middleware_handler
+def setup_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(APIException)
+    async def api_exception_handler(request: Request, exc: APIException) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
+
+    @app.exception_handler(Exception)
+    async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger = logging.getLogger("app.api.exceptions")
+        logger.exception(f"Unhandled error: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "internal_error", "message": "Internal server error"},
+        )

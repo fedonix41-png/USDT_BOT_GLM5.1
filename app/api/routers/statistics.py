@@ -1,21 +1,22 @@
 """Statistics router for API."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
+from typing import Optional
 
-from aiohttp import web
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_min_role
+from app.api.deps import get_session, require_min_role
 from app.api.exceptions import ValidationError as APIValidationError
 from app.api.schemas.statistics import StatisticsResponse
 from app.config import settings
-from app.database.engine import async_session_maker
-from app.database.models.user import RoleEnum
+from app.database.models.user import RoleEnum, User
 from app.services.encryption import EncryptionService
 from app.services.order_service import OrderService
 
 logger = logging.getLogger(__name__)
-router = web.RouteTableDef()
+router = APIRouter(tags=["statistics"])
 
 
 def parse_date(value: str) -> datetime:
@@ -27,41 +28,39 @@ def parse_date(value: str) -> datetime:
     raise ValueError(f"Invalid date format: {value}")
 
 
-@router.get("/api/v1/statistics")
-async def get_statistics(request: web.Request) -> web.Response:
-    await require_min_role(RoleEnum.operator)(request)
-
-    date_from_str = request.query.get("date_from")
-    date_to_str = request.query.get("date_to")
-
-    if date_from_str:
+@router.get("/api/v1/statistics", response_model=StatisticsResponse)
+async def get_statistics(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    current_user: User = Depends(require_min_role(RoleEnum.operator)),
+    session: AsyncSession = Depends(get_session)
+):
+    if date_from:
         try:
-            date_from = parse_date(date_from_str)
+            dt_from = parse_date(date_from)
         except ValueError:
-            raise APIValidationError(f"Invalid date_from format: {date_from_str}")
+            raise APIValidationError(f"Invalid date_from format: {date_from}")
     else:
-        date_from = datetime.utcnow() - timedelta(days=30)
+        dt_from = datetime.now(UTC) - timedelta(days=30)
+        dt_from = dt_from.replace(tzinfo=None)
 
-    if date_to_str:
+    if date_to:
         try:
-            date_to = parse_date(date_to_str)
+            dt_to = parse_date(date_to)
         except ValueError:
-            raise APIValidationError(f"Invalid date_to format: {date_to_str}")
+            raise APIValidationError(f"Invalid date_to format: {date_to}")
     else:
-        date_to = datetime.utcnow()
+        dt_to = datetime.now(UTC).replace(tzinfo=None)
 
-    async with async_session_maker() as session:
-        order_service = OrderService(session, EncryptionService(settings.ENCRYPTION_KEY))
-        stats = await order_service.get_statistics(date_from, date_to)
+    order_service = OrderService(session, EncryptionService(settings.ENCRYPTION_KEY))
+    stats = await order_service.get_statistics(dt_from, dt_to)
 
-        response = StatisticsResponse(
-            total_orders=stats.get("total_orders", 0),
-            completed_orders=stats.get("completed_orders", 0),
-            cancelled_orders=stats.get("cancelled_orders", 0),
-            total_volume_usdt=stats.get("total_volume_usdt", 0),
-            total_volume_fiat=stats.get("total_volume_fiat", 0),
-            buy_orders=stats.get("buy_orders", 0),
-            sell_orders=stats.get("sell_orders", 0),
-        )
-
-        return web.json_response(response.model_dump(mode='json'))
+    return StatisticsResponse(
+        total_orders=stats.get("total_orders", 0),
+        completed_orders=stats.get("completed_orders", 0),
+        cancelled_orders=stats.get("cancelled_orders", 0),
+        total_volume_usdt=stats.get("total_volume_usdt", 0),
+        total_volume_fiat=stats.get("total_volume_fiat", 0),
+        buy_orders=stats.get("buy_orders", 0),
+        sell_orders=stats.get("sell_orders", 0),
+    )

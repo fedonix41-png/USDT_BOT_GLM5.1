@@ -19,8 +19,7 @@ Telegram-бот для обмена USDT построен по модульно�
 │                                                             │
 │  ┌─────────────┐  ┌──────────┐  ┌──────────┐   ┌─────────┐  │
 │  │  Bot        │  │ ARQ      │  │PostgreSQL │  │  Redis  │  │
-│  │  (Long      │  │ Worker   │  │   15      │  │  7-alpine│ │
-│  │   Polling)  │  │ (tasks)  │  │           │  │         │  │
+│  │  (Webhook)  │  │ Worker   │  │   15      │  │  7-alpine│ │
 │  └──────┬──────┘  └────┬─────┘  └─────┬─────┘  └────┬────┘  │
 │         │              │              │              │      │
 │         └──────────────┴──────────────┴──────────────┘      │
@@ -32,9 +31,9 @@ Telegram-бот для обмена USDT построен по модульно�
 
 | Параметр | Значение |
 |----------|----------|
-| **Назначение** | Основной компонент — Telegram-бот на базе Aiogram 3.x |
-| **Режим работы** | Webhook (получение обновлений через `aiohttp` на `/webhook`) |
-| **Функции** | Приём и обработка сообщений, FSM, отправка ответов, регистрация пользователей, маршрутизация по ролям |
+| **Назначение** | Основной компонент — Telegram-бот на базе Aiogram 3.x и REST API (FastAPI) |
+| **Режим работы** | Webhook (получение обновлений через FastAPI на `/webhook`), REST API на `/api/v1` |
+| **Функции** | Приём и обработка сообщений, FSM, отправка ответов, маршрутизация по ролям, HTTP эндпоинты для WebApp |
 | **Запуск** | `uv run python -m app.main` |
 | **Зависимости** | PostgreSQL (через SQLAlchemy async), Redis (кеш флагов) |
 
@@ -201,7 +200,7 @@ Request → ThrottlingMiddleware (outermost)
 | 4 | `BotStatusMiddleware` | `app/middlewares/bot_status.py` | Проверка флага `bot_enabled` (кеш Redis TTL=30с). Блокирует клиентов когда бот отключён. Операторы/админы проходят всегда. Зависит от `user`. |
 | 5 | `RoleGuardMiddleware` | `app/middlewares/role_guard.py` | Проверка прав по ролям через `required_role`. Зависит от `user`. |
 
-### REST API Middleware (aiohttp)
+### REST API Middleware (FastAPI)
 
 **Порядок выполнения:**
 
@@ -243,7 +242,7 @@ Request → logging → cors → rate_limit → login_rate_limit → auth → ip
 ### Webhook (Bot ↔ Telegram)
 
 ```
-Telegram API  ──POST──→   Webhook (aiohttp /webhook)
+Telegram API  ──POST──→   Webhook (FastAPI /webhook)
                                │
                                └── Aiogram Dispatcher
                                         │
@@ -275,7 +274,7 @@ Bot (handler)  ──enqueue──→  Redis (ARQ queue, DB 1)  ──dequeue─
 ### Webapp ↔ REST API (TelePay Integration)
 
 ```
-Webapp (React)  ──HTTP──→  REST API (aiohttp)
+Webapp (React)  ──HTTP──→  REST API (FastAPI)
      │                         │
      ├── api/client.ts         ├── Authorization: Bearer <token> (автоинъекция из Zustand)
      │   ├── ApiError          ├── 401 → auto-logout (client.ts)

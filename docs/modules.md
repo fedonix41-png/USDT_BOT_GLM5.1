@@ -39,12 +39,12 @@ webapp/                 # Telegram Mini App (Frontend)
 app/
 ├── config.py           # Pydantic Settings — все переменные окружения
 ├── bot.py              # Dispatcher, роутеры, middleware registration
-├── main.py             # Entry point — запуск Long Polling + health server
+├── main.py             # Entry point — запуск Webhook (FastAPI) / Uvicorn server
 ├── health.py           # HTTP healthcheck endpoints (/, /health, /ready, /live)
 │
 ├── api/                # REST API модуль
 │   ├── __init__.py
-│   ├── app.py          # aiohttp Application, middleware, routes
+│   ├── app.py          # FastAPI Application, middleware, routes
 │   ├── deps.py         # Dependencies: get_session, get_current_user
 │   ├── auth.py         # JWT generation, verification, refresh
 │   ├── middleware.py   # AuthMiddleware, RateLimitMiddleware, IPWhitelistMiddleware, CORS

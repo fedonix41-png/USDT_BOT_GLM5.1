@@ -39,7 +39,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -48,7 +48,7 @@ services:
 
   arq-worker:
     build: .
-    command: uv run arq app.tasks.worker.WorkerSettings
+    command: uv run python -m app.tasks.worker
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://usdt_bot:${POSTGRES_PASSWORD:-secret}@postgres:5432/usdt_bot
@@ -59,29 +59,6 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-    restart: unless-stopped
-
-  api:
-    build: .
-    command: uv run python -m app.api.app
-    env_file: .env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://usdt_bot:${POSTGRES_PASSWORD:-secret}@postgres:5432/usdt_bot
-      REDIS_URL: redis://redis:6379/0
-      ARQ_REDIS_URL: redis://redis:6379/1
-    ports:
-      - "8081:8081"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/api/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
     restart: unless-stopped
 
   webapp:
@@ -91,7 +68,7 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - api
+      - bot
     restart: unless-stopped
 
   cloudflare-tunnel:

@@ -4,23 +4,21 @@ import hashlib
 import hmac
 import json
 import logging
-from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qsl
 
-from aiohttp import web
-from pydantic import ValidationError
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import generate_access_token
+from app.api.deps import get_session
 from app.api.exceptions import UnauthorizedError
-from app.api.exceptions import ValidationError as APIValidationError
 from app.api.schemas.auth import TelegramVerifyRequest, TokenResponse
 from app.config import settings
-from app.database.engine import async_session_maker
 from app.database.models.user import RoleEnum
 from app.repositories.user_repo import UserRepository
 
 logger = logging.getLogger(__name__)
-router = web.RouteTableDef()
+router = APIRouter(tags=["telegram_auth"])
 
 
 def verify_telegram_webapp_data(init_data: str, bot_token: str) -> dict | None:
@@ -46,20 +44,12 @@ def verify_telegram_webapp_data(init_data: str, bot_token: str) -> dict | None:
         return None
 
 
-@router.post("/api/v1/auth/telegram/verify")
-async def telegram_verify(request: web.Request) -> web.Response:
+@router.post("/api/v1/auth/telegram/verify", response_model=TokenResponse)
+async def telegram_verify(
+    verify_data: TelegramVerifyRequest,
+    session: AsyncSession = Depends(get_session)
+):
     """Verify Telegram WebApp initData and return JWT token."""
-    try:
-        body_text = request.get("body_text", "")
-        if not body_text:
-            body_text = await request.text()
-        data = json.loads(body_text)
-        verify_data = TelegramVerifyRequest(**data)
-    except json.JSONDecodeError:
-        raise APIValidationError("Invalid JSON body")
-    except ValidationError as e:
-        raise APIValidationError(str(e))
-
     user_data = verify_telegram_webapp_data(verify_data.initData, settings.BOT_TOKEN)
     
     if not user_data:
@@ -74,42 +64,41 @@ async def telegram_verify(request: web.Request) -> web.Response:
     if not telegram_id:
         raise UnauthorizedError("Missing Telegram ID")
     
-    async with async_session_maker() as session:
-        user_repo = UserRepository(session)
-        user = await user_repo.get_by_telegram_id(telegram_id)
-        
-        if not user:
-            user = await user_repo.create(
-                telegram_id=telegram_id,
-                username=username,
-                full_name=full_name,
-                role=RoleEnum.client
-            )
-        
-        if user.is_blocked:
-            raise UnauthorizedError("User is blocked")
-        
-        access_token, access_jti, expires_in = generate_access_token(user.id, user.role.value)
-        
-        response_data = TokenResponse(
-            access_token=access_token,
-            token=access_token,
-            user={
-                'id': user.id,
-                'telegram_id': user.telegram_id,
-                'username': user.username,
-                'full_name': user.full_name,
-                'role': user.role.value,
-                'is_blocked': user.is_blocked,
-                'balance': float(user.balance) if hasattr(user, 'balance') else 0.0,
-                'fiat_balance': float(user.fiat_balance) if hasattr(user, 'fiat_balance') else 0.0,
-                'referrals_count': user.referrals_count if hasattr(user, 'referrals_count') else 0,
-                'referral_earned': float(user.referral_earned) if hasattr(user, 'referral_earned') else 0.0,
-                'created_at': user.created_at.isoformat()
-            },
-            expires_in=expires_in
+    user_repo = UserRepository(session)
+    user = await user_repo.get_by_telegram_id(telegram_id)
+    
+    if not user:
+        user = await user_repo.create(
+            telegram_id=telegram_id,
+            username=username,
+            full_name=full_name,
+            role=RoleEnum.client
         )
-        
-        logger.info(f"Telegram user {telegram_id} authenticated")
-        
-        return web.json_response(response_data.model_dump(mode='json'))
+    
+    if user.is_blocked:
+        raise UnauthorizedError("User is blocked")
+    
+    access_token, access_jti, expires_in = generate_access_token(user.id, user.role.value)
+    
+    response_data = TokenResponse(
+        access_token=access_token,
+        token=access_token,
+        user={
+            'id': user.id,
+            'telegram_id': user.telegram_id,
+            'username': user.username,
+            'full_name': user.full_name,
+            'role': user.role.value,
+            'is_blocked': user.is_blocked,
+            'balance': float(user.balance) if hasattr(user, 'balance') else 0.0,
+            'fiat_balance': float(user.fiat_balance) if hasattr(user, 'fiat_balance') else 0.0,
+            'referrals_count': user.referrals_count if hasattr(user, 'referrals_count') else 0,
+            'referral_earned': float(user.referral_earned) if hasattr(user, 'referral_earned') else 0.0,
+            'created_at': user.created_at.isoformat()
+        },
+        expires_in=expires_in
+    )
+    
+    logger.info(f"Telegram user {telegram_id} authenticated")
+    
+    return response_data

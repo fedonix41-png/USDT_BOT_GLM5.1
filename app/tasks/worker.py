@@ -38,3 +38,14 @@ class WorkerSettings:
         import logging
 
         logging.getLogger(__name__).info(f"ARQ job {job_id} started")
+
+
+if __name__ == "__main__":
+    import asyncio
+    import uvloop
+    from arq.worker import run_worker
+
+    uvloop.install()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    run_worker(WorkerSettings)
